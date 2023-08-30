@@ -385,7 +385,5 @@ class Line(object):
             # line is parallel to the plane
             return None
         d = ((plane.point - self.point) * plane.normal) / l_dot_n
-        if forward_only and d < 0:
-            return None
-        return (self.vector * d) + self.point
+        return None if forward_only and d < 0 else (self.vector * d) + self.point
 

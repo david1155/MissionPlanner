@@ -76,8 +76,8 @@ class MAVTemplate(object):
                 break
             endidx = self.find_rep_end(text[subidx:])
             if endidx == -1:
-                raise MAVParseError("missing end macro in %s" % text[subidx:])
-            part1 = text[0:subidx]
+                raise MAVParseError(f"missing end macro in {text[subidx:]}")
+            part1 = text[:subidx]
             part2 = text[subidx+len(self.start_rep_token):subidx+(endidx-len(self.end_rep_token))]
             part3 = text[subidx+endidx:]
             a = part2.split(':')
@@ -89,7 +89,7 @@ class MAVTemplate(object):
             else:
                 v = getattr(subvars, field_name, None)
             if v is None:
-                raise MAVParseError('unable to find field %s' % field_name)
+                raise MAVParseError(f'unable to find field {field_name}')
             t1 = part1
             for f in v:
                 t1 += self.substitute(rest, f, trim_leading_lf=False, checkmissing=False)
@@ -97,7 +97,7 @@ class MAVTemplate(object):
                 t1 = t1[:-1]
             t1 += part3
             text = t1
-                
+
         if trim_leading_lf:
             if text[0] == '\n':
                 text = text[1:]
@@ -107,25 +107,37 @@ class MAVTemplate(object):
                 return text
             endidx = text[idx:].find(self.end_var_token)
             if endidx == -1:
-                raise MAVParseError('missing end of variable: %s' % text[idx:idx+10])
+                raise MAVParseError(f'missing end of variable: {text[idx:idx + 10]}')
             varname = text[idx+2:idx+endidx]
             if isinstance(subvars, dict):
-                if not varname in subvars:
+                if varname not in subvars:
                     if checkmissing:
-                        raise MAVParseError("unknown variable in '%s%s%s'" % (
-                            self.start_var_token, varname, self.end_var_token))
-                    return text[0:idx+endidx] + self.substitute(text[idx+endidx:], subvars,
-                                                                trim_leading_lf=False, checkmissing=False)
+                        raise MAVParseError(
+                            f"unknown variable in '{self.start_var_token}{varname}{self.end_var_token}'"
+                        )
+                    return text[: idx + endidx] + self.substitute(
+                        text[idx + endidx :],
+                        subvars,
+                        trim_leading_lf=False,
+                        checkmissing=False,
+                    )
                 value = subvars[varname]
             else:
                 value = getattr(subvars, varname, None)
                 if value is None:
                     if checkmissing:
-                        raise MAVParseError("unknown variable in '%s%s%s'" % (
-                            self.start_var_token, varname, self.end_var_token))
-                    return text[0:idx+endidx] + self.substitute(text[idx+endidx:], subvars,
-                                                                trim_leading_lf=False, checkmissing=False)
-            text = text.replace("%s%s%s" % (self.start_var_token, varname, self.end_var_token), str(value))
+                        raise MAVParseError(
+                            f"unknown variable in '{self.start_var_token}{varname}{self.end_var_token}'"
+                        )
+                    return text[: idx + endidx] + self.substitute(
+                        text[idx + endidx :],
+                        subvars,
+                        trim_leading_lf=False,
+                        checkmissing=False,
+                    )
+            text = text.replace(
+                f"{self.start_var_token}{varname}{self.end_var_token}", str(value)
+            )
         return text
 
     def write(self, file, text, subvars={}, trim_leading_lf=True):

@@ -210,7 +210,7 @@ class XmlTreeWrapper:
         return self.__tree
 
     
-    def printTree (self, prettyPrint=0, printElementValue=1, encoding=None):
+    def printTree(self, prettyPrint=0, printElementValue=1, encoding=None):
         """Return the string representation of the contained XML tree.
         
         Input parameter:
@@ -220,7 +220,7 @@ class XmlTreeWrapper:
         """
         if not encoding:
             encoding = "utf-8"
-        if encoding != "utf-8" and encoding != "us-ascii":
+        if encoding not in ["utf-8", "us-ascii"]:
             text = "<?xml version='1.0' encoding='%s'?>\n" % encoding
         else:
             text = ""
@@ -364,10 +364,11 @@ class XmlElementWrapper:
         Returns the attribute value.
         """
         attrValue = self.getAttribute (tupleOrAttrName)
-        if attrValue != None:
-            return attrValue
+        if attrValue is None:
+            raise (AttributeError, f"Attribute {repr(tupleOrAttrName)} not found!")
+
         else:
-            raise AttributeError, "Attribute %s not found!" %(repr(tupleOrAttrName))
+            return attrValue
 
 
     def __setitem__(self, tupleOrAttrName, attributeValue):
@@ -456,7 +457,7 @@ class XmlElementWrapper:
         return self.printNode()
 
 
-    def printNode (self, indent="", deep=0, prettyPrint=0, attrMaxLengthDict={}, printElementValue=1, encoding=None):
+    def printNode(self, indent="", deep=0, prettyPrint=0, attrMaxLengthDict={}, printElementValue=1, encoding=None):
         """Retrieve the textual representation of the contained element node.
         
         Input parameter:
@@ -467,14 +468,6 @@ class XmlElementWrapper:
             printElementValue:  0 or 1: controls if the element value is printed
         Returns the string representation
         """
-        patternXmlTagShort = '''\
-%(indent)s<%(qName)s%(attributeString)s/>%(tailText)s%(lf)s'''
-
-        patternXmlTagLong = '''\
-%(indent)s<%(qName)s%(attributeString)s>%(elementValueString)s\
-%(lf)s%(subTreeString)s\
-%(indent)s</%(qName)s>%(tailText)s%(lf)s'''
-        
         subTreeStringList = []
         tailText = ""
         addIndent = ""
@@ -486,10 +479,18 @@ class XmlElementWrapper:
                     childNode.__updateAttrMaxLengthDict(childAttrMaxLengthDict)
                 lf = "\n"
                 addIndent = "    "
-            for childNode in self.getChildren():
-                subTreeStringList.append (childNode.printNode(indent + addIndent, deep, prettyPrint, childAttrMaxLengthDict, printElementValue))
+            subTreeStringList.extend(
+                childNode.printNode(
+                    indent + addIndent,
+                    deep,
+                    prettyPrint,
+                    childAttrMaxLengthDict,
+                    printElementValue,
+                )
+                for childNode in self.getChildren()
+            )
             tailText = escapeCdata(self.element.xmlIfExtGetElementTailText(), encoding)
-        
+
         attributeStringList = []
         for attrName in self.getAttributeList():
             attrValue = escapeAttribute(self.getAttribute(attrName), encoding)
@@ -513,29 +514,33 @@ class XmlElementWrapper:
         else:
             elementValueString = ""
 
-        if subTreeStringList == [] and elementValueString == "":
+        if not subTreeStringList and elementValueString == "":
+            patternXmlTagShort = '''\
+%(indent)s<%(qName)s%(attributeString)s/>%(tailText)s%(lf)s'''
+
             printPattern = patternXmlTagShort
         else:
-            if subTreeStringList != []:
-                subTreeString = string.join (subTreeStringList, "")
-            else:
-                subTreeString = ""
+            subTreeString = (
+                string.join(subTreeStringList, "") if subTreeStringList else ""
+            )
+            patternXmlTagLong = '''\
+%(indent)s<%(qName)s%(attributeString)s>%(elementValueString)s\
+%(lf)s%(subTreeString)s\
+%(indent)s</%(qName)s>%(tailText)s%(lf)s'''
+
             printPattern = patternXmlTagLong
         return printPattern % vars()
 
 
 #++++++++++++ methods concerning the parent of the current node ++++++++++++++++++++++++
 
-    def getParentNode (self):
+    def getParentNode(self):
         """Retrieve the ElementWrapper object of the parent element node.
 
         Returns the ElementWrapper object of the parent element node.
         """
         parent = self.element.xmlIfExtGetParentNode()
-        if parent != None:
-            return parent.xmlIfExtElementWrapper
-        else:
-            return None
+        return parent.xmlIfExtElementWrapper if parent != None else None
 
 
 #++++++++++++ methods concerning the children of the current node ++++++++++++++++++++++++
@@ -590,7 +595,7 @@ class XmlElementWrapper:
         return filter(lambda child:child[keyAttr]==keyValue, children)
     
     
-    def getFirstChild (self, tagFilter=None):
+    def getFirstChild(self, tagFilter=None):
         """Retrieve the ElementWrapper objects of the first child element node.
         
         Input parameter:
@@ -617,10 +622,7 @@ class XmlElementWrapper:
                 if self.__useCaching():
                     self.__firstChildCache[nsNameFilter] = element
 
-        if element != None:
-            return element.xmlIfExtElementWrapper
-        else:
-            return None
+        return element.xmlIfExtElementWrapper if element != None else None
 
 
     def getFirstChildNS (self, namespaceURI, tagFilter=None):
@@ -635,7 +637,7 @@ class XmlElementWrapper:
         return self.getFirstChild ((namespaceURI, tagFilter))
 
 
-    def getFirstChildWithKey (self, tagFilter=None, keyAttr=None, keyValue=None):
+    def getFirstChildWithKey(self, tagFilter=None, keyAttr=None, keyValue=None):
         """Retrieve the ElementWrapper objects of the children element nodes.
         
         Input parameter:
@@ -646,10 +648,7 @@ class XmlElementWrapper:
         """
         children = self.getChildren(tagFilter)
         childrenWithKey = filter(lambda child:child[keyAttr]==keyValue, children)
-        if childrenWithKey != []:
-            return childrenWithKey[0]
-        else:
-            return None
+        return childrenWithKey[0] if childrenWithKey != [] else None
 
     
     def getElementsByTagName (self, tagFilter=None):
@@ -724,7 +723,7 @@ class XmlElementWrapper:
         return childElementWrapper
 
 
-    def insertBefore (self, tupleOrLocalNameOrElement, refChild, attributeDict={}):
+    def insertBefore(self, tupleOrLocalNameOrElement, refChild, attributeDict={}):
         """Insert an child element node before the given reference child of the current node.
 
         Input parameter:
@@ -738,7 +737,7 @@ class XmlElementWrapper:
             childElementWrapper = self.__createElement (tupleOrLocalNameOrElement, attributeDict)
         else:
             childElementWrapper = tupleOrLocalNameOrElement
-        if refChild == None:
+        if refChild is None:
             self.appendChild (childElementWrapper)
         else:
             self.element.xmlIfExtInsertBefore(childElementWrapper.element, refChild.element)
@@ -794,15 +793,14 @@ class XmlElementWrapper:
         return self.element.xmlIfExtGetAttributeDict()
 
 
-    def getAttributeList (self):
+    def getAttributeList(self):
         """Retrieve a list containing all attributes of the current element node
            in the sequence specified in the input XML file.
         
         Returns a list (copy) containing all attributes of the current element node
         in the sequence specified in the input XML file (TODO: does currently not work for 4DOM/pyXML interface).
         """
-        attrList = map(lambda a: NsNameTupleFactory(a), self.attributeSequence)
-        return attrList
+        return map(lambda a: NsNameTupleFactory(a), self.attributeSequence)
 
 
     def getAttribute (self, tupleOrAttrName):
@@ -816,7 +814,7 @@ class XmlElementWrapper:
         return self.element.xmlIfExtGetAttribute(nsName)
 
 
-    def getAttributeOrDefault (self, tupleOrAttrName, defaultValue):
+    def getAttributeOrDefault(self, tupleOrAttrName, defaultValue):
         """Retrieve an attribute value of the current element node or the given default value if the attribute doesn't exist.
         
         Input parameter:
@@ -824,7 +822,7 @@ class XmlElementWrapper:
         Returns the value of the specified attribute or the given default value if the attribute doesn't exist.
         """
         attributeValue = self.getAttribute (tupleOrAttrName)
-        if attributeValue == None:
+        if attributeValue is None:
             attributeValue = defaultValue
         return attributeValue
 
@@ -848,20 +846,17 @@ class XmlElementWrapper:
             return nsNameValue
 
 
-    def hasAttribute (self, tupleOrAttrName):
+    def hasAttribute(self, tupleOrAttrName):
         """Checks if the requested attribute exist for the current element node.
         
         Returns 1 if the attribute exists, otherwise 0.
         """
         nsName = NsNameTupleFactory(tupleOrAttrName)
         attrValue = self.element.xmlIfExtGetAttribute(nsName)
-        if attrValue != None:
-            return 1
-        else:
-            return 0
+        return 1 if attrValue != None else 0
 
 
-    def setAttribute (self, tupleOrAttrName, attributeValue):
+    def setAttribute(self, tupleOrAttrName, attributeValue):
         """Sets an attribute value of the current element node. 
         If the attribute does not yet exist, it will be created.
                
@@ -870,7 +865,10 @@ class XmlElementWrapper:
             attributeValue:   attribute value to be set
         """
         if not isinstance(attributeValue, StringTypes):
-            raise TypeError, "%s (attribute %s) must be a string!" %(repr(attributeValue), repr(tupleOrAttrName))
+            raise (
+                TypeError,
+                f"{repr(attributeValue)} (attribute {repr(tupleOrAttrName)}) must be a string!",
+            )
 
         nsNameAttrName = NsNameTupleFactory(tupleOrAttrName)
         if nsNameAttrName not in self.attributeSequence:
@@ -1044,7 +1042,7 @@ class XmlElementWrapper:
         return self.curNs
 
 
-    def qName2NsName (self, qName, useDefaultNs):
+    def qName2NsName(self, qName, useDefaultNs):
         """Convert a qName 'prefix:localName' to a tuple '(namespace, localName)'.
         
         Input parameter:
@@ -1060,10 +1058,13 @@ class XmlElementWrapper:
                         nsName = (namespaceURI, qNameLocalName)
                         break
             else:
-                if qNamePrefix == None:
+                if qNamePrefix is None:
                     nsName = (EMPTY_NAMESPACE, qNameLocalName)
                 else:
-                    raise ValueError, "Namespace prefix '%s' not bound to a namespace!" % (qNamePrefix)
+                    raise (
+                        ValueError,
+                        f"Namespace prefix '{qNamePrefix}' not bound to a namespace!",
+                    )
         else:
             nsName = (None, None)
         return NsNameTupleFactory(nsName)
@@ -1081,7 +1082,7 @@ class XmlElementWrapper:
         return qName
 
 
-    def getNamespace (self, qName):
+    def getNamespace(self, qName):
         """Retrieve namespace for a qName 'prefix:localName'.
         
         Input parameter:
@@ -1095,16 +1096,16 @@ class XmlElementWrapper:
                     namespace = namespaceURI
                     break
             else:
-                if qNamePrefix == None:
+                if qNamePrefix is None:
                     namespace = EMPTY_NAMESPACE
                 else:
-                    raise LookupError, "Namespace for QName '%s' not found!" % (qName)
+                    raise (LookupError, f"Namespace for QName '{qName}' not found!")
         else:
             namespace = EMPTY_NAMESPACE
         return namespace
 
 
-    def getNsPrefix (self, nsLocalName):
+    def getNsPrefix(self, nsLocalName):
         """Retrieve prefix for a tuple '(namespace, localName)'.
         
         Input parameter:
@@ -1116,10 +1117,10 @@ class XmlElementWrapper:
             if ns == namespace:
                 return prefix
         else:
-            if ns == None:
+            if ns is None:
                 return None
             else:
-                raise LookupError, "Prefix for namespaceURI '%s' not found!" % (ns)
+                raise (LookupError, f"Prefix for namespaceURI '{ns}' not found!")
 
 
 #++++++++++++ limited XPath support ++++++++++++++++++++
@@ -1139,7 +1140,7 @@ class XmlElementWrapper:
         return self.getXPathList(xPath, namespaceRef, useDefaultNs, attrIgnoreList)[0]
 
 
-    def getXPathList (self, xPath, namespaceRef=None, useDefaultNs=1, attrIgnoreList=[]):
+    def getXPathList(self, xPath, namespaceRef=None, useDefaultNs=1, attrIgnoreList=[]):
         """Retrieve node list or attribute list for specified XPath
         
         Input parameter:
@@ -1157,7 +1158,7 @@ class XmlElementWrapper:
         """
         reChild     = re.compile('child *::')
         reAttribute = re.compile('attribute *::')
-        if namespaceRef == None: namespaceRef = self
+        if namespaceRef is None: namespaceRef = self
         xPath = reChild.sub('./', xPath)
         xPath = reAttribute.sub('@', xPath)
         xPathList = string.split (xPath, "|")
@@ -1177,7 +1178,7 @@ class XmlElementWrapper:
                 localStep = string.strip(localStep)
                 stepChildList = []
                 if localStep == "":
-                    raise IOError ("Invalid xPath '%s'!" %(xRelPath))
+                    raise IOError(f"Invalid xPath '{xRelPath}'!")
                 elif localStep == ".":
                     continue
                 elif localStep[0] == '@':
@@ -1203,12 +1204,12 @@ class XmlElementWrapper:
                             if attrNsName[1] == '*':
                                 for attr in childNode.getAttributeDict().keys():
                                     if attr[0] == attrNsName[0]:
-                                        if attrNodeList == []:
+                                        if not attrNodeList:
                                             attrNsNameFirst = attrNsName
                                         attrNodeList.append (childNode)
                                         stepChildList.append (childNode.getAttribute(attr))
                             elif childNode.hasAttribute(attrNsName):
-                                if attrNodeList == []:
+                                if not attrNodeList:
                                     attrNsNameFirst = attrNsName
                                 attrNodeList.append (childNode)
                                 stepChildList.append (childNode.getAttribute(attrNsName))

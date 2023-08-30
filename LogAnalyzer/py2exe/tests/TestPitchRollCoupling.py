@@ -21,7 +21,7 @@ class TestPitchRollCoupling(Test):
             self.result.status = TestResult.StatusType.NA
             return
 
-        if not "ATT" in logdata.channels:
+        if "ATT" not in logdata.channels:
             self.result.status = TestResult.StatusType.UNKNOWN
             self.result.statusMessage = "No ATT log data"
             return
@@ -57,7 +57,7 @@ class TestPitchRollCoupling(Test):
                     manualSegments.append((prevLine,line-1))
                 prevLine = 0
             else:
-                raise Exception("Unknown mode in TestPitchRollCoupling: %s" % mode)
+                raise Exception(f"Unknown mode in TestPitchRollCoupling: {mode}")
         # and handle the last segment, which doesn't have an ending
         if mode in autoModes:
             autoSegments.append((prevLine,logdata.lineCount))

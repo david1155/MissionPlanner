@@ -174,8 +174,7 @@ class QuaternionBase(object):
         qi = self.q[1:4]
         ui = np.array(v)
         a = q0 * ui + np.cross(qi, ui)
-        t = np.dot(qi, ui) * qi + q0 * a - np.cross(a, qi)
-        return t
+        return np.dot(qi, ui) * qi + q0 * a - np.cross(a, qi)
 
     @property
     def norm(self):

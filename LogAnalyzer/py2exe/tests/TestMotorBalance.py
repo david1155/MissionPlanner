@@ -18,23 +18,25 @@ class TestBalanceTwist(Test):
             return
 
         self.result.status = TestResult.StatusType.UNKNOWN
-        if not "RCOU" in logdata.channels:
+        if "RCOU" not in logdata.channels:
             return
 
         ch = []
 
         for i in range(8):
-            for prefix in "Chan", "Ch", "C":
-                if prefix+repr((i+1)) in logdata.channels["RCOU"]:
-                    ch.append(map(lambda x: x[1], logdata.channels["RCOU"][prefix+repr((i+1))].listData))
-
+            ch.extend(
+                map(
+                    lambda x: x[1],
+                    logdata.channels["RCOU"][prefix + repr((i + 1))].listData,
+                )
+                for prefix in ("Chan", "Ch", "C")
+                if prefix + repr((i + 1)) in logdata.channels["RCOU"]
+            )
         ch = zip(*ch)
         num_channels = 0
         for i in range(len(ch)):
             ch[i] = filter(lambda x: (x>0 and x<3000), ch[i])
-            if num_channels < len(ch[i]):
-                num_channels = len(ch[i])
-
+            num_channels = max(num_channels, len(ch[i]))
         if logdata.frame:
             num_channels = logdata.num_motor_channels()
 

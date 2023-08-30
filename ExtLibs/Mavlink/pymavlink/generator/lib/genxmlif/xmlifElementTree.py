@@ -180,27 +180,21 @@ class ElementExtension (_ElementInterface):
         self.__xmlIfExtParentElement = parentElement
     
 
-    def xmlIfExtGetChildren (self, filterTag=None):
-        if filterTag == None:
+    def xmlIfExtGetChildren(self, filterTag=None):
+        if filterTag is None:
             return self.getchildren()
-        else:
-            clarkFilterTag = toClarkQName(filterTag)
-            return self.findall(clarkFilterTag)
+        clarkFilterTag = toClarkQName(filterTag)
+        return self.findall(clarkFilterTag)
 
 
-    def xmlIfExtGetFirstChild (self, filterTag=None):
+    def xmlIfExtGetFirstChild(self, filterTag=None):
         # replace base method (performance optimized)
-        if filterTag == None:
+        if filterTag is None:
             children = self.getchildren()
-            if children != []:
-                element = children[0]
-            else:
-                element = None
+            return children[0] if children != [] else None
         else:
             clarkFilterTag = toClarkQName(filterTag)
-            element = self.find(clarkFilterTag)
-
-        return element
+            return self.find(clarkFilterTag)
 
 
     def xmlIfExtGetElementsByTagName (self, filterTag=(None,None)):
@@ -257,12 +251,9 @@ class ElementExtension (_ElementInterface):
         return attrDict
 
 
-    def xmlIfExtGetAttribute (self, tupleOrAttrName):
+    def xmlIfExtGetAttribute(self, tupleOrAttrName):
         clarkQName = toClarkQName(tupleOrAttrName)
-        if self.attrib.has_key(clarkQName):
-            return self.attrib[clarkQName]
-        else:
-            return None
+        return self.attrib[clarkQName] if self.attrib.has_key(clarkQName) else None
 
 
     def xmlIfExtSetAttribute (self, tupleOrAttrName, attributeValue, curNs):
@@ -275,13 +266,13 @@ class ElementExtension (_ElementInterface):
             del self.attrib[clarkQName]
 
 
-    def xmlIfExtGetElementValueFragments (self, ignoreEmtpyStringFragments):
+    def xmlIfExtGetElementValueFragments(self, ignoreEmtpyStringFragments):
         elementValueList = []
         if self.text != None:
             elementValueList.append(self.text)
-        for child in self.getchildren():
-            if child.tail != None:
-                elementValueList.append(child.tail)
+        elementValueList.extend(
+            child.tail for child in self.getchildren() if child.tail != None
+        )
         if ignoreEmtpyStringFragments:
             elementValueList = filter (lambda s: collapseString(s) != "", elementValueList)
         if elementValueList == []:
@@ -289,18 +280,12 @@ class ElementExtension (_ElementInterface):
         return elementValueList
 
 
-    def xmlIfExtGetElementText (self):
-        if self.text != None:
-            return self.text
-        else:
-            return ""
+    def xmlIfExtGetElementText(self):
+        return self.text if self.text != None else ""
 
     
-    def xmlIfExtGetElementTailText (self):
-        if self.tail != None:
-            return self.tail
-        else:
-            return ""
+    def xmlIfExtGetElementTailText(self):
+        return self.tail if self.tail != None else ""
     
 
     def xmlIfExtSetElementValue (self, elementValue):

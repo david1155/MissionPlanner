@@ -121,7 +121,10 @@ class XsValSchema (XsValBase):
             if elementNode.hasAttribute("ref"):
                 for attrName in ("name", "type", "form"):
                     if elementNode.hasAttribute(attrName):
-                        self._addError ("Element with 'ref' attribute must not have %s attribute!" %repr(attrName), elementNode)
+                        self._addError(
+                            f"Element with 'ref' attribute must not have {repr(attrName)} attribute!",
+                            elementNode,
+                        )
                         continue
 
             complexTypeNode = elementNode.getFirstChildNS (self.inputNsURI, "complexType")
@@ -132,11 +135,14 @@ class XsValSchema (XsValBase):
             if elementNode.hasAttribute("type") and (complexTypeNode != None or simpleTypeNode != None):
                 self._addError ("Element with 'type' attribute must not have type definition!", elementNode)
                 continue
-            
+
             if elementNode.hasAttribute("ref"):
                 for forbiddenAttr in ("block", "nillable", "default", "fixed"):
                     if elementNode.hasAttribute(forbiddenAttr):
-                        self._addError ("Element with 'ref' attribute must not have %s attribute!" %repr(forbiddenAttr), elementNode)
+                        self._addError(
+                            f"Element with 'ref' attribute must not have {repr(forbiddenAttr)} attribute!",
+                            elementNode,
+                        )
 
                 self._checkReference (elementNode, self.xsdElementDict)
 
@@ -186,7 +192,9 @@ class XsValSchema (XsValBase):
 #                self._checkGroupNodeCircularDef(groupNode, {groupNode["name"]:1})
     
     def _checkGroupNodeCircularDef(self, groupNode, groupNameDict):
-        childGroupsRefNodes, dummy, dummy = groupNode.getXPathList (".//%sgroup" %(self.inputNsPrefixString))
+        childGroupsRefNodes, dummy, dummy = groupNode.getXPathList(
+            f".//{self.inputNsPrefixString}group"
+        )
         for childGroupRefNode in childGroupsRefNodes:
             if childGroupRefNode.hasAttribute("ref"):
                 childGroupNode = self.xsdGroupDict[childGroupRefNode.getQNameAttribute("ref")]
@@ -194,7 +202,10 @@ class XsValSchema (XsValBase):
                     groupNameDict[childGroupNode["name"]] = 1
                     self._checkGroupNodeCircularDef(childGroupNode, groupNameDict)
                 else:
-                    self._addError ("Circular definition of group %s!" %repr(childGroupNode["name"]), childGroupNode)
+                    self._addError(
+                        f'Circular definition of group {repr(childGroupNode["name"])}!',
+                        childGroupNode,
+                    )
                 
 
     ########################################
@@ -219,8 +230,11 @@ class XsValSchema (XsValBase):
                 if (attributeNode.getParentNode() == self.inputRoot or
                     self._getAttributeFormDefault(attributeNode) == "qualified"):
                     if self._getTargetNamespace(attributeNode) == XSI_NAMESPACE:
-                        self._addError ("Target namespace of an attribute must not match '%s'!" %XSI_NAMESPACE, attributeNode)
-                
+                        self._addError(
+                            f"Target namespace of an attribute must not match '{XSI_NAMESPACE}'!",
+                            attributeNode,
+                        )
+
             if not attributeNode.hasAttribute("name") and not attributeNode.hasAttribute("ref"):
                 self._addError ("Attribute must have 'name' or 'ref' attribute!", attributeNode)
                 continue
@@ -238,7 +252,7 @@ class XsValSchema (XsValBase):
 
                 if attributeNode.getFirstChildNS(XSD_NAMESPACE, "simpleType") != None:
                     self._addError ("Attribute may only have 'ref' attribute OR 'simpleType' child!", attributeNode)
-                
+
                 self._checkReference (attributeNode, self.xsdAttributeDict)
 
             if attributeNode.hasAttribute("type"):
@@ -249,7 +263,10 @@ class XsValSchema (XsValBase):
 
             use = attributeNode.getAttribute("use")
             if use in ("required", "prohibited") and attributeNode.hasAttribute("default"):
-                self._addError ("Attribute 'default' is not allowed, because 'use' is '%s'!" %(use), attributeNode)
+                self._addError(
+                    f"Attribute 'default' is not allowed, because 'use' is '{use}'!",
+                    attributeNode,
+                )
 
             self._checkNodeId(attributeNode, unambiguousPerFile=0)
 
@@ -260,7 +277,9 @@ class XsValSchema (XsValBase):
     # additional checks for attribute wildcards
     #
     def _checkAnyAttributesSecondLevel(self):
-        anyAttributeNodes, dummy, dummy = self.inputRoot.getXPathList (".//%sanyAttribute" %(self.inputNsPrefixString))
+        anyAttributeNodes, dummy, dummy = self.inputRoot.getXPathList(
+            f".//{self.inputNsPrefixString}anyAttribute"
+        )
         for anyAttributeNode in anyAttributeNodes:
             # check for unique ID
             self._checkNodeId (anyAttributeNode)
@@ -293,7 +312,7 @@ class XsValSchema (XsValBase):
             self._updateAttributeDict (complexTypeNode, validAttrDict, 1)
             # check for duplicate ID attributes
             idAttrNode = None
-            for key, val in validAttrDict.items():
+            for val in validAttrDict.values():
                 attrType = val["RefNode"].getQNameAttribute("type")
                 if attrType == (XSD_NAMESPACE, "ID"):
                     if not idAttrNode:
@@ -301,7 +320,7 @@ class XsValSchema (XsValBase):
                     else:
                         # TODO: check also if attribute has a type which is derived from ID!
                         self._addError ("Two attribute declarations of complex type are IDs!", val["Node"])
-                        
+
             # check for unique ID
             self._checkNodeId (complexTypeNode)
 
@@ -332,7 +351,7 @@ class XsValSchema (XsValBase):
             self._checkNodeId (particleNode)
                 
 
-    def _checkContainedElements (self, node, particleType, elementNameDict, elementTypeDict, groupNameDict):
+    def _checkContainedElements(self, node, particleType, elementNameDict, elementTypeDict, groupNameDict):
         prefix = self.inputNsPrefixString
         for childNode in node.getChildren():
             childParticleType = childNode.getLocalName()
@@ -348,7 +367,10 @@ class XsValSchema (XsValBase):
                             if cChildNode.getLocalName() != "annotation":
                                 self._checkContainedElements (cChildNode, particleType, elementNameDict, elementTypeDict, groupNameDict)
                     else:
-                        self._addError ("Circular definition of group %s!" %repr(childGroupNode["name"]), childNode)
+                        self._addError(
+                            f'Circular definition of group {repr(childGroupNode["name"])}!',
+                            childNode,
+                        )
                 else:
                     for cChildNode in childNode.getChildren():
                         if cChildNode.getLocalName() != "annotation":
@@ -363,12 +385,18 @@ class XsValSchema (XsValBase):
                     if not elementTypeDict.has_key(elementName):
                         elementTypeDict[elementName] = childNode["type"]
                     elif childNode["type"] != elementTypeDict[elementName]:
-                        self._addError ("Element %s has identical name and different types within %s!" %(repr(elementName), repr(particleType)), childNode)
+                        self._addError(
+                            f"Element {repr(elementName)} has identical name and different types within {repr(particleType)}!",
+                            childNode,
+                        )
                 if particleType != "sequence":
                     if not elementNameDict.has_key(elementName):
                         elementNameDict[elementName] = 1
                     else:
-                        self._addError ("Element %s is not unique within %s!" %(repr(elementName), repr(particleType)), childNode)
+                        self._addError(
+                            f"Element {repr(elementName)} is not unique within {repr(particleType)}!",
+                            childNode,
+                        )
 
 
     ########################################
@@ -549,7 +577,9 @@ class XsValSchema (XsValBase):
     # additional checks for keyrefs
     #
     def _checkKeysSecondLevel(self):
-        keyNodes, dummy, dummy = self.inputRoot.getXPathList (".//%skey" %(self.inputNsPrefixString))
+        keyNodes, dummy, dummy = self.inputRoot.getXPathList(
+            f".//{self.inputNsPrefixString}key"
+        )
         for keyNode in keyNodes:
             # check for unique ID
             self._checkNodeId (keyNode)
@@ -563,7 +593,9 @@ class XsValSchema (XsValBase):
     # additional checks for keyrefs
     #
     def _checkKeyRefsSecondLevel(self):
-        keyrefNodes, dummy, dummy = self.inputRoot.getXPathList (".//%skeyref" %(self.inputNsPrefixString))
+        keyrefNodes, dummy, dummy = self.inputRoot.getXPathList(
+            f".//{self.inputNsPrefixString}keyref"
+        )
         for keyrefNode in keyrefNodes:
             # check for unique ID
             self._checkNodeId (keyrefNode)
@@ -577,7 +609,10 @@ class XsValSchema (XsValBase):
 
     def _checkFixedDefault(self, node):
         if node.hasAttribute("default") and node.hasAttribute("fixed"):
-            self._addError ("%s may have 'default' OR 'fixed' attribute!" %repr(node.getLocalName()), node)
+            self._addError(
+                f"{repr(node.getLocalName())} may have 'default' OR 'fixed' attribute!",
+                node,
+            )
         if  node.hasAttribute("default"):
             self._checkSimpleType (node, "type", node, "default", node["default"], None, checkAttribute=1)
         if  node.hasAttribute("fixed"):
@@ -591,10 +626,13 @@ class XsValSchema (XsValBase):
             fixedValue = node.getAttribute("fixed")
             fixedRefValue = refNode.getAttribute("fixed")
             if fixedValue != None and fixedRefValue != None and fixedValue != fixedRefValue:
-                self._addError ("Fixed value %s of attribute does not match fixed value %s of reference!" %(repr(fixedValue), repr(fixedRefValue)), node)
-                
+                self._addError(
+                    f"Fixed value {repr(fixedValue)} of attribute does not match fixed value {repr(fixedRefValue)} of reference!",
+                    node,
+                )
+
         else:
-            self._addError ("Reference %s not found!" %(repr(baseNsName)), node)
+            self._addError(f"Reference {repr(baseNsName)} not found!", node)
 
     def _checkType(self, node, typeAttrName, dict, typeNsName=None):
         baseNsName = node.getQNameAttribute(typeAttrName)
@@ -603,39 +641,56 @@ class XsValSchema (XsValBase):
     
     def _checkBaseType(self, node, baseNsName, dict, typeNsName=None):
         if not dict.has_key(baseNsName) and baseNsName != (XSD_NAMESPACE, "anySimpleType"):
-            self._addError ("Definition of type %s not found!" %(repr(baseNsName)), node)
+            self._addError(f"Definition of type {repr(baseNsName)} not found!", node)
         elif typeNsName != None:
             if typeNsName == (XSD_NAMESPACE, "simpleContent"):
                 if node.getNsName() == (XSD_NAMESPACE, "restriction"):
-                    if (baseNsName != (XSD_NAMESPACE, "anySimpleType") and
-                        dict[baseNsName].getNsName() == (XSD_NAMESPACE, "complexType") and
-                        dict[baseNsName].getFirstChild().getNsName() == typeNsName):
-                        pass
-                    else:
-                        self._addError ("Referred type %s must be a complex type with simple content!" %(repr(baseNsName)), node)
-                else: # extension
-                    if (baseNsName == (XSD_NAMESPACE, "anySimpleType") or
-                        dict[baseNsName].getNsName() == (XSD_NAMESPACE, "simpleType") or
-                       (dict[baseNsName].getNsName() == (XSD_NAMESPACE, "complexType") and
-                        dict[baseNsName].getFirstChild().getNsName() == typeNsName)):
-                        pass
-                    else:
-                        self._addError ("Referred type %s must be a simple type or a complex type with simple content!" %(repr(baseNsName)), node)
-            else:
-                if typeNsName == (XSD_NAMESPACE, "simpleType") and baseNsName == (XSD_NAMESPACE, "anySimpleType"):
-                    pass
-                elif dict[baseNsName].getNsName() != typeNsName:
-                    self._addError ("Referred type %s must be a %s!" %(repr(baseNsName), repr(typeNsName)), node)
+                    if (
+                        baseNsName == (XSD_NAMESPACE, "anySimpleType")
+                        or dict[baseNsName].getNsName()
+                        != (XSD_NAMESPACE, "complexType")
+                        or dict[baseNsName].getFirstChild().getNsName()
+                        != typeNsName
+                    ):
+                        self._addError(
+                            f"Referred type {repr(baseNsName)} must be a complex type with simple content!",
+                            node,
+                        )
+                elif (
+                    baseNsName != (XSD_NAMESPACE, "anySimpleType")
+                    and dict[baseNsName].getNsName()
+                    != (XSD_NAMESPACE, "simpleType")
+                    and (
+                        dict[baseNsName].getNsName()
+                        != (XSD_NAMESPACE, "complexType")
+                        or dict[baseNsName].getFirstChild().getNsName()
+                        != typeNsName
+                    )
+                ):
+                    self._addError(
+                        f"Referred type {repr(baseNsName)} must be a simple type or a complex type with simple content!",
+                        node,
+                    )
+            elif typeNsName == (XSD_NAMESPACE, "simpleType") and baseNsName == (XSD_NAMESPACE, "anySimpleType"):
+                pass
+            elif dict[baseNsName].getNsName() != typeNsName:
+                self._addError(
+                    f"Referred type {repr(baseNsName)} must be a {repr(typeNsName)}!",
+                    node,
+                )
 
 
     def _checkKeyRef(self, keyrefNode, dict):
         baseNsName = keyrefNode.getQNameAttribute("refer")
         if not dict.has_key(baseNsName):
-            self._addError ("keyref refers unknown key %s!" %(repr(baseNsName)), keyrefNode)
+            self._addError(f"keyref refers unknown key {repr(baseNsName)}!", keyrefNode)
         else:
             keyNode = dict[baseNsName]["Node"]
             if keyNode.getNsName() not in ((XSD_NAMESPACE, "key"), (XSD_NAMESPACE, "unique")):
-                self._addError ("reference to non-key constraint %s!" %(repr(baseNsName)), keyrefNode)
+                self._addError(
+                    f"reference to non-key constraint {repr(baseNsName)}!",
+                    keyrefNode,
+                )
             if len(keyrefNode.getChildrenNS(XSD_NAMESPACE, "field")) != len(keyNode.getChildrenNS(XSD_NAMESPACE, "field")):
                 self._addError ("key/keyref field size mismatch!", keyrefNode)
                 
@@ -648,7 +703,7 @@ class XsValSchema (XsValBase):
                 self._addError ("Attribute minOccurs > maxOccurs!", node)
 
 
-    def _checkNodeId (self, node, unambiguousPerFile=1):
+    def _checkNodeId(self, node, unambiguousPerFile=1):
         if node.hasAttribute("id"):
             # id must only be unambiguous within one file
             if unambiguousPerFile:
@@ -658,35 +713,44 @@ class XsValSchema (XsValBase):
             if not self.xsdIdDict.has_key(nodeId):
                 self.xsdIdDict[nodeId] = node
             else:
-                self._addError ("There are multiple occurences of ID value %s!" %repr(nodeId), node)
+                self._addError(
+                    f"There are multiple occurences of ID value {repr(nodeId)}!",
+                    node,
+                )
 
 
     def _getFacetType(self, node, parentNodeList, xsdTypeDict):
-            baseNsName = node.getQNameAttribute("base")
-            try:
-                baseNode = xsdTypeDict[baseNsName]
-            except:
-                self._addError ("Base type %s must be an atomic simple type definition or a builtin type!" %repr(baseNsName), node)
-                return None
+        baseNsName = node.getQNameAttribute("base")
+        try:
+            baseNode = xsdTypeDict[baseNsName]
+        except:
+            self._addError(
+                f"Base type {repr(baseNsName)} must be an atomic simple type definition or a builtin type!",
+                node,
+            )
+            return None
 
-            if baseNode in parentNodeList:
-                self._addError ("Circular type definition (type is contained in its own type hierarchy)!", node)
-                return None
-                
-            if baseNode.getNsName() == (XSD_NAMESPACE, "simpleType"):
-                if baseNode.getAttribute("facetType") != None:
-                    facetType = baseNode.qName2NsName(baseNode["facetType"], 1)
-                    node.getParentNode()["facetType"] = node.nsName2QName(facetType)
-                    return facetType
+        if baseNode in parentNodeList:
+            self._addError ("Circular type definition (type is contained in its own type hierarchy)!", node)
+            return None
+
+        if baseNode.getNsName() == (XSD_NAMESPACE, "simpleType"):
+            if baseNode.getAttribute("facetType") is None:
+                for baseNodeType in ("list", "union"):
+                    if baseNode.getFirstChildNS (XSD_NAMESPACE, baseNodeType) != None:
+                        return (XSD_NAMESPACE, baseNodeType)
                 else:
-                    for baseNodeType in ("list", "union"):
-                        if baseNode.getFirstChildNS (XSD_NAMESPACE, baseNodeType) != None:
-                            return (XSD_NAMESPACE, baseNodeType)
-                    else:
-                        parentNodeList.append(node)
-                        return self._getFacetType(baseNode.getFirstChildNS(XSD_NAMESPACE, "restriction"), parentNodeList, xsdTypeDict)    
+                    parentNodeList.append(node)
+                    return self._getFacetType(baseNode.getFirstChildNS(XSD_NAMESPACE, "restriction"), parentNodeList, xsdTypeDict)
             else:
-                self._addError ("Base type %s must be an atomic simple type definition or a builtin type!" %repr(baseNsName), node)
-                return None
+                facetType = baseNode.qName2NsName(baseNode["facetType"], 1)
+                node.getParentNode()["facetType"] = node.nsName2QName(facetType)
+                return facetType
+        else:
+            self._addError(
+                f"Base type {repr(baseNsName)} must be an atomic simple type definition or a builtin type!",
+                node,
+            )
+            return None
             
 

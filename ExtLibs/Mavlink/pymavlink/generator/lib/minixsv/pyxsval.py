@@ -86,11 +86,11 @@ def getVersion ():
 ########################################
 # access function for adding a user specific XML interface class
 #
-def addUserSpecXmlIfClass (xmlIfKey, factory):
+def addUserSpecXmlIfClass(xmlIfKey, factory):
     if not _xmlIfDict.has_key(xmlIfKey):
         _xmlIfDict[xmlIfKey] = factory
     else:
-        raise KeyError, "xmlIfKey %s already implemented!" %(xmlIfKey)
+        raise (KeyError, f"xmlIfKey {xmlIfKey} already implemented!")
 
 
 ########################################
@@ -205,8 +205,8 @@ class XsValidator:
     # parse XML file
     # 'file' may be a filepath or an URI
     #
-    def parse (self, file, baseUrl="", ownerDoc=None):
-        self._verbosePrint ("Parsing %s..." %(file))
+    def parse(self, file, baseUrl="", ownerDoc=None):
+        self._verbosePrint(f"Parsing {file}...")
         return self.xmlIf.parse(file, baseUrl, ownerDoc)
 
 
@@ -243,21 +243,20 @@ class XsValidator:
     ########################################
     # validate XML input
     #
-    def validateXmlInputString (self, inputTreeWrapper, xsdText=None, validateSchema=0):
+    def validateXmlInputString(self, inputTreeWrapper, xsdText=None, validateSchema=0):
         # if the input file contains schema references => use these
         xsdTreeWrapperList = self._readReferencedXsdFiles(inputTreeWrapper, validateSchema)
         if xsdTreeWrapperList == []:
             # if the input file doesn't contain schema references => use given xsdText
-            if xsdText != None:
-                xsdFile = "schema text"
+            if xsdText is None:
+                self.errorHandler.raiseError ("No schema specified!")
+
+            else:
                 xsdTreeWrapper = self.parseString (xsdText)
                 xsdTreeWrapperList.append(xsdTreeWrapper)
                 # validate XML schema file if requested
                 if validateSchema:
-                    self.validateXmlSchema (xsdFile, xsdTreeWrapper)
-            else:
-                self.errorHandler.raiseError ("No schema specified!")
-
+                    self.validateXmlSchema("schema text", xsdTreeWrapper)
         self._validateXmlInput ("input text", inputTreeWrapper, xsdTreeWrapperList)
         for xsdTreeWrapper in xsdTreeWrapperList:
             xsdTreeWrapper.unlink()
@@ -267,13 +266,13 @@ class XsValidator:
     ########################################
     # validate XML schema separately
     #
-    def validateXmlSchema (self, xsdFile, xsdTreeWrapper):
+    def validateXmlSchema(self, xsdFile, xsdTreeWrapper):
         # parse minixsv internal schema
         global rulesTreeWrapper
-        if rulesTreeWrapper == None:
+        if rulesTreeWrapper is None:
             rulesTreeWrapper = self.parse(os.path.join (MINIXSV_DIR, "XMLSchema.xsd"))
 
-        self._verbosePrint ("Validating %s..." %(xsdFile))
+        self._verbosePrint(f"Validating {xsdFile}...")
         xsvGivenXsdFile = XsValSchema (self.xmlIf, self.errorHandler, self.verbose)
         xsvGivenXsdFile.validate(xsdTreeWrapper, [rulesTreeWrapper,])
         self.schemaDependancyList.append (xsdFile)
@@ -286,8 +285,8 @@ class XsValidator:
     ########################################
     # validate XML input tree and xsd tree if requested
     #
-    def _validateXmlInput (self, xmlInputFile, inputTreeWrapper, xsdTreeWrapperList):
-        self._verbosePrint ("Validating %s..." %(xmlInputFile))
+    def _validateXmlInput(self, xmlInputFile, inputTreeWrapper, xsdTreeWrapperList):
+        self._verbosePrint(f"Validating {xmlInputFile}...")
         xsvInputFile = XsValBase (self.xmlIf, self.errorHandler, self.verbose)
         xsvInputFile.validate(inputTreeWrapper, xsdTreeWrapperList)
         xsvInputFile.unlink()
@@ -324,7 +323,7 @@ class XsValidator:
     ########################################
     # retrieve XML schema location from XML input tree
     #
-    def _retrieveReferencedXsdFiles (self, inputTreeWrapper):
+    def _retrieveReferencedXsdFiles(self, inputTreeWrapper):
         # a schemaLocation attribute is expected in the root tag of the XML input file
         inputRootNode = inputTreeWrapper.getRootNode()
         xsdFileList = []
@@ -333,17 +332,17 @@ class XsValidator:
             attributeValue = inputRootNode.getAttribute((XSI_NAMESPACE, "schemaLocation"))
             attrValList = string.split(attributeValue)
             if len(attrValList) % 2 == 0:
-                for i in range(0, len(attrValList), 2):
-                    xsdFileList.append((attrValList[i], attrValList[i+1]))
+                xsdFileList.extend(
+                    (attrValList[i], attrValList[i + 1])
+                    for i in range(0, len(attrValList), 2)
+                )
             else:
                 self.errorHandler.raiseError ("'schemaLocation' attribute must have even number of URIs (pairs of namespace and xsdFile)!")
 
         if inputRootNode.hasAttribute((XSI_NAMESPACE, "noNamespaceSchemaLocation")):
             attributeValue = inputRootNode.getAttribute((XSI_NAMESPACE, "noNamespaceSchemaLocation"))
             attrValList = string.split(attributeValue)
-            for attrVal in attrValList:
-                xsdFileList.append ((None, attrVal))
-
+            xsdFileList.extend((None, attrVal) for attrVal in attrValList)
         return xsdFileList
 
     ########################################

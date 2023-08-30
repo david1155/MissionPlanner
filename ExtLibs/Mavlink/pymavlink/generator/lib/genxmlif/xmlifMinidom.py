@@ -131,13 +131,12 @@ class InternalMinidomElementWrapper (InternalDomElementWrapper):
     """Internal Wrapper for a Dom Element class.
     """
 
-    def xmlIfExtGetAttributeDict (self):
+    def xmlIfExtGetAttributeDict(self):
         """Return a dictionary with all attributes of this element."""
-        attribDict = {}
-        for attrNameNS, attrNodeOrValue in self.element.attributes.itemsNS():
-            attribDict[NsNameTupleFactory(attrNameNS)] = attrNodeOrValue
-                
-        return attribDict
+        return {
+            NsNameTupleFactory(attrNameNS): attrNodeOrValue
+            for attrNameNS, attrNodeOrValue in self.element.attributes.itemsNS()
+        }
 
 
 

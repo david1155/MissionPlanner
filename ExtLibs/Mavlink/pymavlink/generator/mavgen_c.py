@@ -18,8 +18,8 @@ t = mavtemplate.MAVTemplate()
 
 def generate_version_h(directory, xml):
     '''generate version.h'''
-    f = open(os.path.join(directory, "version.h"), mode='w')
-    t.write(f,'''
+    with open(os.path.join(directory, "version.h"), mode='w') as f:
+        t.write(f,'''
 /** @file
  *  @brief MAVLink comm protocol built from ${basename}.xml
  *  @see http://mavlink.org
@@ -35,12 +35,11 @@ def generate_version_h(directory, xml):
  
 #endif // MAVLINK_VERSION_H
 ''', xml)
-    f.close()
 
 def generate_mavlink_h(directory, xml):
     '''generate mavlink.h'''
-    f = open(os.path.join(directory, "mavlink.h"), mode='w')
-    t.write(f,'''
+    with open(os.path.join(directory, "mavlink.h"), mode='w') as f:
+        t.write(f,'''
 /** @file
  *  @brief MAVLink comm protocol built from ${basename}.xml
  *  @see http://mavlink.org
@@ -76,12 +75,11 @@ def generate_mavlink_h(directory, xml):
 
 #endif // MAVLINK_H
 ''', xml)
-    f.close()
 
 def generate_main_h(directory, xml):
     '''generate main header per XML file'''
-    f = open(os.path.join(directory, xml.basename + ".h"), mode='w')
-    t.write(f, '''
+    with open(os.path.join(directory, f"{xml.basename}.h"), mode='w') as f:
+        t.write(f, '''
 /** @file
  *  @brief MAVLink comm protocol generated from ${basename}.xml
  *  @see http://mavlink.org
@@ -164,14 +162,12 @@ ${{include_list:#include "../${base}/${base}.h"
 #endif // __cplusplus
 #endif // MAVLINK_${basename_upper}_H
 ''', xml)
-
-    f.close()
              
 
 def generate_message_h(directory, m):
     '''generate per-message header for a XML file'''
-    f = open(os.path.join(directory, 'mavlink_msg_%s.h' % m.name_lower), mode='w')
-    t.write(f, '''
+    with open(os.path.join(directory, f'mavlink_msg_{m.name_lower}.h'), mode='w') as f:
+        t.write(f, '''
 #pragma once
 // MESSAGE ${name} PACKING
 
@@ -409,13 +405,12 @@ ${{ordered_fields:    ${decode_left}mavlink_msg_${name_lower}_get_${name}(msg${d
 #endif
 }
 ''', m)
-    f.close()
 
 
 def generate_testsuite_h(directory, xml):
     '''generate testsuite.h per XML file'''
-    f = open(os.path.join(directory, "testsuite.h"), mode='w')
-    t.write(f, '''
+    with open(os.path.join(directory, "testsuite.h"), mode='w') as f:
+        t.write(f, '''
 /** @file
  *    @brief MAVLink comm protocol testsuite generated from ${basename}.xml
  *    @see http://qgroundcontrol.org/mavlink/
@@ -514,8 +509,6 @@ ${{message:    mavlink_test_${name_lower}(system_id, component_id, last_msg);
 #endif // ${basename_upper}_TESTSUITE_H
 ''', xml)
 
-    f.close()
-
 def copy_fixed_headers(directory, xml):
     '''copy the fixed protocol headers to the target directory'''
     import shutil, filecmp
@@ -526,8 +519,10 @@ def copy_fixed_headers(directory, xml):
                  'mavlink_get_info.h', 'mavlink_sha256.h' ]
         }
     basepath = os.path.dirname(os.path.realpath(__file__))
-    srcpath = os.path.join(basepath, 'C/include_v%s' % xml.wire_protocol_version)
-    print("Copying fixed headers for protocol %s to %s" % (xml.wire_protocol_version, directory))
+    srcpath = os.path.join(basepath, f'C/include_v{xml.wire_protocol_version}')
+    print(
+        f"Copying fixed headers for protocol {xml.wire_protocol_version} to {directory}"
+    )
     for h in hlist[xml.wire_protocol_version]:
         src = os.path.realpath(os.path.join(srcpath, h))
         dest = os.path.realpath(os.path.join(directory, h))
@@ -544,7 +539,7 @@ def generate_one(basename, xml):
 
     directory = os.path.join(basename, xml.basename)
 
-    print("Generating C implementation in directory %s" % directory)
+    print(f"Generating C implementation in directory {directory}")
     mavparse.mkdir_p(directory)
 
     if xml.little_endian:
@@ -552,21 +547,9 @@ def generate_one(basename, xml):
     else:
         xml.mavlink_endian = "MAVLINK_BIG_ENDIAN"
 
-    if xml.crc_extra:
-        xml.crc_extra_define = "1"
-    else:
-        xml.crc_extra_define = "0"
-
-    if xml.command_24bit:
-        xml.command_24bit_define = "1"
-    else:
-        xml.command_24bit_define = "0"
-
-    if xml.sort_fields:
-        xml.aligned_fields_define = "1"
-    else:
-        xml.aligned_fields_define = "0"
-
+    xml.crc_extra_define = "1" if xml.crc_extra else "0"
+    xml.command_24bit_define = "1" if xml.command_24bit else "0"
+    xml.aligned_fields_define = "1" if xml.sort_fields else "0"
     # work out the included headers
     xml.include_list = []
     for i in xml.include:
@@ -605,12 +588,12 @@ def generate_one(basename, xml):
         # we sort with primary key msgid
         for msgid in sorted(xml.message_names.keys()):
             name = xml.message_names[msgid]
-            xml.message_info_array += 'MAVLINK_MESSAGE_INFO_%s, ' % name
+            xml.message_info_array += f'MAVLINK_MESSAGE_INFO_{name}, '
     else:
         for msgid in range(256):
             name = xml.message_names.get(msgid, None)
             if name is not None:
-                xml.message_info_array += 'MAVLINK_MESSAGE_INFO_%s, ' % name
+                xml.message_info_array += f'MAVLINK_MESSAGE_INFO_{name}, '
             else:
                 # Several C compilers don't accept {NULL} for
                 # multi-dimensional arrays and structs
@@ -628,10 +611,7 @@ def generate_one(basename, xml):
     # add some extra field attributes for convenience with arrays
     for m in xml.message:
         m.msg_name = m.name
-        if xml.crc_extra:
-            m.crc_extra_arg = ", %s" % m.crc_extra
-        else:
-            m.crc_extra_arg = ""
+        m.crc_extra_arg = ", %s" % m.crc_extra if xml.crc_extra else ""
         for f in m.fields:
             if f.print_format is None:
                 f.c_print_format = 'NULL'
@@ -651,9 +631,7 @@ def generate_one(basename, xml):
                 if f.type == 'char':
                     f.c_test_value = '"%s"' % f.test_value
                 else:
-                    test_strings = []
-                    for v in f.test_value:
-                        test_strings.append(str(v))
+                    test_strings = [str(v) for v in f.test_value]
                     f.c_test_value = '{ %s }' % ', '.join(test_strings)
             else:
                 f.array_suffix = ''
@@ -668,10 +646,10 @@ def generate_one(basename, xml):
                 f.return_type = f.type
                 if f.type == 'char':
                     f.c_test_value = "'%s'" % f.test_value
-                elif f.type == 'uint64_t':
-                    f.c_test_value = "%sULL" % f.test_value                    
                 elif f.type == 'int64_t':
-                    f.c_test_value = "%sLL" % f.test_value                    
+                    f.c_test_value = "%sLL" % f.test_value
+                elif f.type == 'uint64_t':
+                    f.c_test_value = "%sULL" % f.test_value
                 else:
                     f.c_test_value = f.test_value
 

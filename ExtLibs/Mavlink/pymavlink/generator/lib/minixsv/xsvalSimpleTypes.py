@@ -388,9 +388,9 @@ def _checkStringType (inputNode, simpleType, attributeValue, returnDict):
     # TODO: all valid??
     returnDict["length"] = len(attributeValue)
 
-def _checkAnyUriType (inputNode, simpleType, attributeValue, returnDict):
+def _checkAnyUriType(inputNode, simpleType, attributeValue, returnDict):
     # TODO: any checks??
-    if attributeValue[0:2] == '##':
+    if attributeValue[:2] == '##':
         raise BaseTypeError("is not a valid URI!")
     returnDict["adaptedAttrValue"] = collapseString(attributeValue)
     returnDict["wsAction"] = "collapse"
@@ -608,10 +608,12 @@ def _checkMonthDay (inputNode, simpleType, attributeValue, returnDict):
     returnDict["adaptedAttrValue"] = attributeValue
     returnDict["wsAction"] = "collapse"
     
-def _checkYear (inputNode, simpleType, attributeValue, returnDict):
+def _checkYear(inputNode, simpleType, attributeValue, returnDict):
     attributeValue = collapseString(attributeValue)
     regexObj = reYear.match(attributeValue)
-    if not regexObj or regexObj.end() != len(attributeValue or regexObj.group("year") == None):
+    if not regexObj or regexObj.end() != len(
+        attributeValue or regexObj.group("year") is None
+    ):
         raise BaseTypeError("is not a gYear value (1)!")
     try:
         year = int(regexObj.group("year"))
@@ -655,8 +657,9 @@ class TimezoneFixedOffset(datetime.tzinfo):
         if offset == "Z":
             self.__offset = datetime.timedelta(0)
         else:
-            self.__offset = datetime.timedelta(hours=int(offset[0:3]), 
-                                               minutes=int(offset[0] + offset[4:5]))
+            self.__offset = datetime.timedelta(
+                hours=int(offset[:3]), minutes=int(offset[0] + offset[4:5])
+            )
 
     def utcoffset(self, dt):
         return self.__offset
