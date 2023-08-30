@@ -208,7 +208,7 @@ substSpecialEscList = (
 # substitute some multichar escape characters
 # which are not handled by the standard python re module
 #
-def substituteSpecialEscChars (intRePattern):
+def substituteSpecialEscChars(intRePattern):
     for specialEsc, repl in substSpecialEscList:
         intRePattern = string.replace(intRePattern, specialEsc, repl)
 
@@ -219,43 +219,50 @@ def substituteSpecialEscChars (intRePattern):
             pP = regexObj.group('pP')
             if not substMultiCharEscPDict.has_key(id):
                 raise SyntaxError, r"Unknown MultiCharEscape sequence '\%s{%s}' found!" %(pP, id)
-            else:
-                inv = 0
-                invstr = ""
-                if pP == "P": inv ^= 1
-                if regexObj.group('inv') == '^': 
-                    inv ^= 1
-                if inv: invstr = "^"
-                if creWithinSet.match(intRePattern[:regexObj.start("escSeq")]):
-                    substituteDict[(regexObj.start("escSeq"), regexObj.end("escSeq"))] = ur"%s%s" %(invstr, substMultiCharEscPDict[id])
-                else:
-                    substituteDict[(regexObj.start("escSeq"), regexObj.end("escSeq"))] = ur"[%s%s]" %(invstr, substMultiCharEscPDict[id])
-
+            inv = 0
+            invstr = ""
+            if pP == "P": inv ^= 1
+            if regexObj.group('inv') == '^': 
+                inv ^= 1
+            if inv: invstr = "^"
+            substituteDict[
+                (regexObj.start("escSeq"), regexObj.end("escSeq"))
+            ] = (
+                f'{invstr}{substMultiCharEscPDict[id]}'
+                if creWithinSet.match(intRePattern[: regexObj.start("escSeq")])
+                else f'[{invstr}{substMultiCharEscPDict[id]}]'
+            )
     for regexObj in creSingleCharEsc.finditer(intRePattern):
         if not (len(regexObj.group('pbs')) & 1): # even number of preceding backslashes
             foundStr = regexObj.group("escChar")
             if not substSingleCharEscDict.has_key(foundStr):
-                raise SyntaxError, "Unknown SingleCharEscape sequence '%s' found!" %(foundStr)
+                raise (SyntaxError, f"Unknown SingleCharEscape sequence '{foundStr}' found!")
+            if regexObjWithinSet := creWithinSet.match(
+                intRePattern[: regexObj.start("escChar")]
+            ):
+                substituteDict[
+                    (regexObj.start("escChar"), regexObj.end("escChar"))
+                ] = f'{substSingleCharEscDict[foundStr]}'
             else:
-                regexObjWithinSet = creWithinSet.match(intRePattern[:regexObj.start("escChar")])
-                if regexObjWithinSet:
-                    substituteDict[(regexObj.start("escChar"), regexObj.end("escChar"))] = ur"%s" %substSingleCharEscDict[foundStr]
-                else:
-                    substituteDict[(regexObj.start("escChar"), regexObj.end("escChar"))] = ur"[%s]" %substSingleCharEscDict[foundStr]
+                substituteDict[
+                    (regexObj.start("escChar"), regexObj.end("escChar"))
+                ] = f'[{substSingleCharEscDict[foundStr]}]'
 
-    if substituteDict != {}:
-        strFragList = []
-        lastPos = 0
-        keyList = substituteDict.keys()
-        keyList.sort()
-        for startPos, endPos in keyList:
-            strFragList.append(intRePattern[lastPos:startPos])
-            strFragList.append(substituteDict[(startPos,endPos)])
-            lastPos = endPos
-        strFragList.append(intRePattern[lastPos:])
-        expandedPattern = "".join(strFragList)
-    else:
-        expandedPattern = intRePattern
-        
-    return expandedPattern
+    if not substituteDict:
+        return intRePattern
+
+    strFragList = []
+    lastPos = 0
+    keyList = substituteDict.keys()
+    keyList.sort()
+    for startPos, endPos in keyList:
+        strFragList.extend(
+            (
+                intRePattern[lastPos:startPos],
+                substituteDict[(startPos, endPos)],
+            )
+        )
+        lastPos = endPos
+    strFragList.append(intRePattern[lastPos:])
+    return "".join(strFragList)
 

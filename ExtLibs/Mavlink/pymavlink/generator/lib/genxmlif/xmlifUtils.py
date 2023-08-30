@@ -110,13 +110,12 @@ def processWhitespaceAction (strValue, wsAction, lstrip=1, rstrip=1):
 ##########################################################
 #  convert input parameter 'fileOrUrl' into a valid URL
 
-def convertToUrl (fileOrUrl):
-    matchObject = _reSplitUrlApplication.match(fileOrUrl)
-    if matchObject:
+def convertToUrl(fileOrUrl):
+    if matchObject := _reSplitUrlApplication.match(fileOrUrl):
         # given fileOrUrl is an absolute URL
         if matchObject.group(1) == 'file':
             path = re.sub(':', '|', matchObject.group(2)) # replace ':' by '|' in the path string
-            url = "file:" + path
+            url = f"file:{path}"
         else:
             url = fileOrUrl
     elif not os.path.isfile(fileOrUrl):
@@ -133,34 +132,29 @@ def convertToUrl (fileOrUrl):
 ##########################################################
 #  convert input parameter 'fileOrUrl' into a valid absolute URL
 
-def convertToAbsUrl (fileOrUrl, baseUrl):
+def convertToAbsUrl(fileOrUrl, baseUrl):
     if fileOrUrl == "" and baseUrl != "":
         absUrl = "file:" + urllib.pathname2url (os.path.join(os.getcwd(), baseUrl, "__NO_FILE__"))
     elif os.path.isfile(fileOrUrl):
-        absUrl = "file:" + urllib.pathname2url (os.path.join(os.getcwd(), fileOrUrl))
-    else:
-        matchObject = _reSplitUrlApplication.match(fileOrUrl)
-        if matchObject:
+        absUrl = f"file:{urllib.pathname2url(os.path.join(os.getcwd(), fileOrUrl))}"
+    elif matchObject := _reSplitUrlApplication.match(fileOrUrl):
             # given fileOrUrl is an absolute URL
-            if matchObject.group(1) == 'file':
-                path = re.sub(':', '|', matchObject.group(2)) # replace ':' by '|' in the path string
-                absUrl = "file:" + path
-            else:
-                absUrl = fileOrUrl
+        if matchObject.group(1) == 'file':
+            path = re.sub(':', '|', matchObject.group(2)) # replace ':' by '|' in the path string
+            absUrl = f"file:{path}"
         else:
+            absUrl = fileOrUrl
+    else:
             # given fileOrUrl is treated as a relative URL
-            if baseUrl != "":
-                absUrl = urlparse.urljoin (baseUrl, fileOrUrl)
-            else:
-                absUrl = fileOrUrl
+        absUrl = urlparse.urljoin (baseUrl, fileOrUrl) if baseUrl != "" else fileOrUrl
 #                raise IOError, "File %s not found!" %(fileOrUrl)
     return absUrl
 
 
 ##########################################################
 #  normalize filter
-def normalizeFilter (filterVar):
-    if filterVar == None or filterVar == '*':
+def normalizeFilter(filterVar):
+    if filterVar is None or filterVar == '*':
         filterVar = ("*",)
     elif not isinstance(filterVar, TupleType):
         filterVar = (filterVar,)
@@ -171,7 +165,7 @@ def normalizeFilter (filterVar):
 # Namespace handling
 ######################################################################
 
-def nsNameToQName (nsLocalName, curNs):
+def nsNameToQName(nsLocalName, curNs):
     """Convert a tuple '(namespace, localName)' to a string 'prefix:localName'
     
     Input parameter:
@@ -182,15 +176,12 @@ def nsNameToQName (nsLocalName, curNs):
     ns = nsLocalName[0]
     for prefix, namespace in curNs:
         if ns == namespace:
-            if prefix != None:
-                return "%s:%s" %(prefix, nsLocalName[1])
-            else:
-                return "%s" %nsLocalName[1]
+            return f"{prefix}:{nsLocalName[1]}" if prefix != None else f"{nsLocalName[1]}"
     else:
-        if ns == None:
+        if ns is None:
             return nsLocalName[1]
         else:
-            raise LookupError, "Prefix for namespaceURI '%s' not found!" % (ns)
+            raise (LookupError, f"Prefix for namespaceURI '{ns}' not found!")
 
 
 def splitQName (qName):
@@ -215,7 +206,7 @@ def splitQName (qName):
     return prefix, localName
 
 
-def toClarkQName (tupleOrLocalName):
+def toClarkQName(tupleOrLocalName):
     """converts a tuple (namespace, localName) into clark notation {namespace}localName
        qNames without namespace remain unchanged
 
@@ -223,13 +214,12 @@ def toClarkQName (tupleOrLocalName):
         'tupleOrLocalName':  tuple '(namespace, localName)' to be converted
     Returns a string {namespace}localName
     """
-    if isinstance(tupleOrLocalName, TupleType):
-        if tupleOrLocalName[0] != EMPTY_NAMESPACE:
-            return "{%s}%s" %(tupleOrLocalName[0], tupleOrLocalName[1])
-        else:
-            return tupleOrLocalName[1]
-    else:
+    if not isinstance(tupleOrLocalName, TupleType):
         return tupleOrLocalName
+    if tupleOrLocalName[0] != EMPTY_NAMESPACE:
+        return "{%s}%s" %(tupleOrLocalName[0], tupleOrLocalName[1])
+    else:
+        return tupleOrLocalName[1]
     
     
 def splitClarkQName (qName):
@@ -335,10 +325,7 @@ def escapeAttribute(text, encoding=None, replace=string.replace):
 #
 class QNameTuple(tuple):
     def __str__(self):
-        if self[0] != EMPTY_PREFIX:
-            return "%s:%s" %(self[0],self[1])
-        else:
-            return self[1]
+        return f"{self[0]}:{self[1]}" if self[0] != EMPTY_PREFIX else self[1]
     
 
 def QNameTupleFactory(initValue):
@@ -367,7 +354,7 @@ class NsNameTuple(tuple):
 def NsNameTupleFactory(initValue):
     if isinstance(initValue, StringTypes):
         initValue = splitClarkQName(initValue)
-    elif initValue == None:
+    elif initValue is None:
         initValue = (EMPTY_NAMESPACE, initValue)
     return NsNameTuple(initValue)
 

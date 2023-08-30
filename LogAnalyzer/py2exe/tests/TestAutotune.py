@@ -43,7 +43,7 @@ class TestAutotune(Test):
             return AUTOTUNE_REACHED_LIMIT in [i for _,i in self.events]
 
         def __repr__(self):
-            return "<AutotuneSession {}-{}>".format(self.linestart,self.linestop)
+            return f"<AutotuneSession {self.linestart}-{self.linestop}>"
 
 
     def __init__(self):
@@ -60,7 +60,7 @@ class TestAutotune(Test):
 
         for i in ['EV','ATDE','ATUN']:
             r = False
-            if not i in logdata.channels:
+            if i not in logdata.channels:
                 self.result.status = TestResult.StatusType.UNKNOWN
                 self.result.statusMessage = "No {} log data".format(i)
                 r = True
@@ -87,7 +87,7 @@ class TestAutotune(Test):
                 def class_from_channel(c):
                     members = dict({'__init__':lambda x: setattr(x,i,None) for i in logdata.channels[c]})
                     cls = type(\
-                               'Channel__{:s}'.format(c),
+                                   'Channel__{:s}'.format(c),
                                (object,),
                                members
                                )

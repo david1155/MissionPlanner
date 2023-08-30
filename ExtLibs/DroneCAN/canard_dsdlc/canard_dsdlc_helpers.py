@@ -58,13 +58,15 @@ def get_empy_env_broadcast(msg):
 
 def dronecan_type_is_signed(dronecan_type):
     assert dronecan_type.category == dronecan_type.CATEGORY_PRIMITIVE
-    if dronecan_type.kind == dronecan_type.KIND_BOOLEAN:
+    if dronecan_type.kind in [
+        dronecan_type.KIND_BOOLEAN,
+        dronecan_type.KIND_UNSIGNED_INT,
+    ]:
         return False
-    elif dronecan_type.kind == dronecan_type.KIND_UNSIGNED_INT:
-        return False
-    elif dronecan_type.kind == dronecan_type.KIND_SIGNED_INT:
-        return True
-    elif dronecan_type.kind == dronecan_type.KIND_FLOAT:
+    elif dronecan_type.kind in [
+        dronecan_type.KIND_SIGNED_INT,
+        dronecan_type.KIND_FLOAT,
+    ]:
         return True
 
 def union_msg_tag_bitlen_from_num_fields(num_fields):
@@ -89,13 +91,13 @@ def c_int_type_from_bitlen(bitlen):
     return 'int%u_t' % (c_int_type_bitlen(bitlen),)
 
 def underscored_name_to_ctype(name):
-    return '%s' % (name)
+    return f'{name}'
 
 def dronecan_type_to_ctype(dronecan_type):
     assert dronecan_type.category != dronecan_type.CATEGORY_VOID
     if dronecan_type.category == dronecan_type.CATEGORY_COMPOUND:
         assert dronecan_type.kind == dronecan_type.KIND_MESSAGE
-        return '%s' % (underscored_name(dronecan_type))
+        return f'{underscored_name(dronecan_type)}'
     elif dronecan_type.category == dronecan_type.CATEGORY_PRIMITIVE:
         if dronecan_type.kind == dronecan_type.KIND_BOOLEAN:
             return 'bool'
@@ -110,13 +112,12 @@ def dronecan_type_to_ctype(dronecan_type):
 
 def field_cdef(field):
     assert field.type.category != field.type.CATEGORY_VOID
-    if field.type.category == field.type.CATEGORY_ARRAY:
-        if field.type.mode == field.type.MODE_STATIC:
-            return '[MarshalAs(UnmanagedType.ByValArray,SizeConst=%u)] public %s[] %s = new %s[%u]' % (field.type.max_size, dronecan_type_to_ctype(field.type.value_type), field.name, dronecan_type_to_ctype(field.type.value_type), field.type.max_size)
-        else:
-            return 'public uint%u_t %s_len; [MarshalAs(UnmanagedType.ByValArray,SizeConst=%u)] public %s[] %s = Enumerable.Range(1, %u).Select(i => new %s()).ToArray()' % (c_int_type_bitlen(array_len_field_bitlen(field.type)), field.name, field.type.max_size, dronecan_type_to_ctype(field.type.value_type), field.name, field.type.max_size, dronecan_type_to_ctype(field.type.value_type))
+    if field.type.category != field.type.CATEGORY_ARRAY:
+        return f'public {dronecan_type_to_ctype(field.type)} {field.name} = new {dronecan_type_to_ctype(field.type)}()'
+    if field.type.mode == field.type.MODE_STATIC:
+        return '[MarshalAs(UnmanagedType.ByValArray,SizeConst=%u)] public %s[] %s = new %s[%u]' % (field.type.max_size, dronecan_type_to_ctype(field.type.value_type), field.name, dronecan_type_to_ctype(field.type.value_type), field.type.max_size)
     else:
-        return 'public %s %s = new %s()' % (dronecan_type_to_ctype(field.type), field.name, dronecan_type_to_ctype(field.type))
+        return 'public uint%u_t %s_len; [MarshalAs(UnmanagedType.ByValArray,SizeConst=%u)] public %s[] %s = Enumerable.Range(1, %u).Select(i => new %s()).ToArray()' % (c_int_type_bitlen(array_len_field_bitlen(field.type)), field.name, field.type.max_size, dronecan_type_to_ctype(field.type.value_type), field.name, field.type.max_size, dronecan_type_to_ctype(field.type.value_type))
 
 def indent(string, n):
     if string.strip():
@@ -128,35 +129,35 @@ def msg_header_name_request(obj):
     if isinstance(obj, dronecan.dsdl.Field):
         obj = obj.type
     assert obj.category == obj.CATEGORY_COMPOUND and obj.kind == obj.KIND_SERVICE
-    return '%s_req.cs' % (obj.full_name,)
+    return f'{obj.full_name}_req.cs'
 
 def msg_header_name_response(obj):
     if isinstance(obj, dronecan.dsdl.Field):
         obj = obj.type
     assert obj.category == obj.CATEGORY_COMPOUND and obj.kind == obj.KIND_SERVICE
-    return '%s_res.cs' % (obj.full_name,)
+    return f'{obj.full_name}_res.cs'
 
 def msg_header_name(obj):
     if isinstance(obj, dronecan.dsdl.Field):
         obj = obj.type
-    return '%s.cs' % (obj.full_name,)
+    return f'{obj.full_name}.cs'
 
 def msg_c_file_name_request(obj):
     if isinstance(obj, dronecan.dsdl.Field):
         obj = obj.type
     assert obj.category == obj.CATEGORY_COMPOUND and obj.kind == obj.KIND_SERVICE
-    return '%s_req.cs' % (obj.full_name,)
+    return f'{obj.full_name}_req.cs'
 
 def msg_c_file_name_response(obj):
     if isinstance(obj, dronecan.dsdl.Field):
         obj = obj.type
     assert obj.category == obj.CATEGORY_COMPOUND and obj.kind == obj.KIND_SERVICE
-    return '%s_res.cs' % (obj.full_name,)
+    return f'{obj.full_name}_res.cs'
 
 def msg_c_file_name(obj):
     if isinstance(obj, dronecan.dsdl.Field):
         obj = obj.type
-    return '%s.cs' % (obj.full_name,)
+    return f'{obj.full_name}.cs'
 
 def underscored_name(obj):
     return obj.full_name.replace('.','_')
@@ -172,7 +173,5 @@ def mkdir_p(path):
     try:
         os.makedirs(path)
     except OSError as exc:  # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
+        if exc.errno != errno.EEXIST or not os.path.isdir(path):
             raise

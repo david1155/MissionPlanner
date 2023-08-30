@@ -158,11 +158,8 @@ def get_motor_offsets(SERVO_OUTPUT_RAW, ofs, motor_ofs):
     rc3_min = self.param('RC3_MIN', 1100)
     rc3_max = self.param('RC3_MAX', 1900)
     motor = (motor_pwm - rc3_min) / (rc3_max - rc3_min)
-    if motor > 1.0:
-        motor = 1.0
-    if motor < 0.0:
-        motor = 0.0
-
+    motor = min(motor, 1.0)
+    motor = max(motor, 0.0)
     motor_offsets0 = motor_ofs[0] * motor
     motor_offsets1 = motor_ofs[1] * motor
     motor_offsets2 = motor_ofs[2] * motor
@@ -198,7 +195,7 @@ average_data = {}
 def average(var, key, N):
     '''average over N points'''
     global average_data
-    if not key in average_data:
+    if key not in average_data:
         average_data[key] = [var]*N
         return var
     average_data[key].pop(0)
@@ -213,7 +210,7 @@ def second_derivative_5(var, key):
     from . import mavutil
     tnow = mavutil.mavfile_global.timestamp
 
-    if not key in derivative_data:
+    if key not in derivative_data:
         derivative_data[key] = (tnow, [var]*5)
         return 0
     (last_time, data) = derivative_data[key]
@@ -221,10 +218,7 @@ def second_derivative_5(var, key):
     data.append(var)
     derivative_data[key] = (tnow, data)
     h = (tnow - last_time)
-    # N=5 2nd derivative from
-    # http://www.holoborodko.com/pavel/numerical-methods/numerical-derivative/smooth-low-noise-differentiators/
-    ret = ((data[4] + data[0]) - 2*data[2]) / (4*h**2)
-    return ret
+    return ((data[4] + data[0]) - 2*data[2]) / (4*h**2)
 
 def second_derivative_9(var, key):
     '''9 point 2nd derivative'''
@@ -232,7 +226,7 @@ def second_derivative_9(var, key):
     from . import mavutil
     tnow = mavutil.mavfile_global.timestamp
 
-    if not key in derivative_data:
+    if key not in derivative_data:
         derivative_data[key] = (tnow, [var]*9)
         return 0
     (last_time, data) = derivative_data[key]
@@ -243,15 +237,20 @@ def second_derivative_9(var, key):
     # N=5 2nd derivative from
     # http://www.holoborodko.com/pavel/numerical-methods/numerical-derivative/smooth-low-noise-differentiators/
     f = data
-    ret = ((f[8] + f[0]) + 4*(f[7] + f[1]) + 4*(f[6]+f[2]) - 4*(f[5]+f[3]) - 10*f[4])/(64*h**2)
-    return ret
+    return (
+        (f[8] + f[0])
+        + 4 * (f[7] + f[1])
+        + 4 * (f[6] + f[2])
+        - 4 * (f[5] + f[3])
+        - 10 * f[4]
+    ) / (64 * h**2)
 
 lowpass_data = {}
 
 def lowpass(var, key, factor):
     '''a simple lowpass filter'''
     global lowpass_data
-    if not key in lowpass_data:
+    if key not in lowpass_data:
         lowpass_data[key] = var
     else:
         lowpass_data[key] = factor*lowpass_data[key] + (1.0 - factor)*var
@@ -263,7 +262,7 @@ def diff(var, key):
     '''calculate differences between values'''
     global last_diff
     ret = 0
-    if not key in last_diff:
+    if key not in last_diff:
         last_diff[key] = var
         return 0
     ret = var - last_diff[key]
@@ -285,10 +284,7 @@ def delta(var, key, tusec=None):
         (last_v, last_t, last_ret) = last_delta[key]
         if last_t == tnow:
             return last_ret
-        if tnow == last_t:
-            ret = 0
-        else:
-            ret = (var - last_v) / (tnow - last_t)
+        ret = (var - last_v) / (tnow - last_t)
     last_delta[key] = (var, tnow, ret)
     return ret
 
@@ -306,15 +302,12 @@ def delta_angle(var, key, tusec=None):
         (last_v, last_t, last_ret) = last_delta[key]
         if last_t == tnow:
             return last_ret
-        if tnow == last_t:
-            ret = 0
-        else:
-            dv = var - last_v
-            if dv > 180:
-                dv -= 360
-            if dv < -180:
-                dv += 360
-            ret = dv / (tnow - last_t)
+        dv = var - last_v
+        if dv > 180:
+            dv -= 360
+        if dv < -180:
+            dv += 360
+        ret = dv / (tnow - last_t)
     last_delta[key] = (var, tnow, ret)
     return ret
 
@@ -432,9 +425,7 @@ def pitch_sim(SIMSTATE, GPS_RAW):
     zacc += SIMSTATE.ygyro * GPS_RAW.v;
     if xacc/zacc >= 1:
         return 0
-    if xacc/zacc <= -1:
-        return -0
-    return degrees(-asin(xacc/zacc))
+    return -0 if xacc/zacc <= -1 else degrees(-asin(xacc/zacc))
 
 def distance_two(GPS_RAW1, GPS_RAW2, horizontal=True):
     '''distance between two points'''
@@ -465,9 +456,7 @@ def distance_two(GPS_RAW1, GPS_RAW2, horizontal=True):
     a = sin(0.5*dLat)**2 + sin(0.5*dLon)**2 * cos(lat1) * cos(lat2)
     c = 2.0 * atan2(sqrt(a), sqrt(1.0-a))
     ground_dist = 6371 * 1000 * c
-    if horizontal:
-        return ground_dist
-    return sqrt(ground_dist**2 + (alt2-alt1)**2)
+    return ground_dist if horizontal else sqrt(ground_dist**2 + (alt2-alt1)**2)
 
 
 first_fix = None
@@ -497,8 +486,7 @@ def rate_of_turn(speed, bank):
        bank angle in degrees'''
     if abs(speed) < 2 or abs(bank) > 80:
         return 0
-    ret = degrees(9.81*tan(radians(bank))/speed)
-    return ret
+    return degrees(9.81*tan(radians(bank))/speed)
 
 def wingloading(bank):
     '''return expected wing loading factor for a bank angle in radians'''
@@ -523,8 +511,7 @@ def airspeed(VFR_HUD, ratio=None, used_ratio=None, offset=None):
     airspeed_pressure = (airspeed**2) / used_ratio
     if offset is not None:
         airspeed_pressure += offset
-        if airspeed_pressure < 0:
-            airspeed_pressure = 0
+        airspeed_pressure = max(airspeed_pressure, 0)
     airspeed = sqrt(airspeed_pressure * ratio)
     return airspeed
 
@@ -559,8 +546,7 @@ def airspeed_voltage(VFR_HUD, ratio=None):
     airspeed_pressure = (pow(VFR_HUD.airspeed,2)) / used_ratio
     raw = airspeed_pressure + offset
     SCALING_OLD_CALIBRATION = 204.8
-    voltage = 5.0 * raw / 4096
-    return voltage
+    return 5.0 * raw / 4096
 
 
 def earth_rates(ATTITUDE):
@@ -632,8 +618,7 @@ def airspeed_energy_error(NAV_CONTROLLER_OUTPUT, VFR_HUD):
     '''
     aspeed_cm = VFR_HUD.airspeed*100
     target_airspeed = NAV_CONTROLLER_OUTPUT.aspd_error + aspeed_cm
-    airspeed_energy_error = ((target_airspeed*target_airspeed) - (aspeed_cm*aspeed_cm))*0.00005
-    return airspeed_energy_error
+    return ((target_airspeed*target_airspeed) - (aspeed_cm*aspeed_cm))*0.00005
 
 
 def energy_error(NAV_CONTROLLER_OUTPUT, VFR_HUD):
@@ -642,8 +627,7 @@ def energy_error(NAV_CONTROLLER_OUTPUT, VFR_HUD):
     '''
     aspeed_energy_error = airspeed_energy_error(NAV_CONTROLLER_OUTPUT, VFR_HUD)
     alt_error = NAV_CONTROLLER_OUTPUT.alt_error*100
-    energy_error = aspeed_energy_error + alt_error*0.098
-    return energy_error
+    return aspeed_energy_error + alt_error*0.098
 
 def rover_turn_circle(SERVO_OUTPUT_RAW):
     '''return turning circle (diameter) in meters for steering_angle in degrees
@@ -669,15 +653,13 @@ def rover_yaw_rate(VFR_HUD, SERVO_OUTPUT_RAW):
     d = rover_turn_circle(SERVO_OUTPUT_RAW)
     c = pi * d
     t = c / speed
-    rate = 360.0 / t
-    return rate
+    return 360.0 / t
 
 def rover_lat_accel(VFR_HUD, SERVO_OUTPUT_RAW):
     '''return lateral acceleration in m/s/s'''
     speed = VFR_HUD.groundspeed
     yaw_rate = rover_yaw_rate(VFR_HUD, SERVO_OUTPUT_RAW)
-    accel = radians(yaw_rate) * speed
-    return accel
+    return radians(yaw_rate) * speed
 
 
 def demix1(servo1, servo2, gain=0.5):
@@ -849,9 +831,7 @@ def armed(HEARTBEAT):
     from . import mavutil
     if HEARTBEAT.type == mavutil.mavlink.MAV_TYPE_GCS:
         self = mavutil.mavfile_global
-        if self.motors_armed():
-            return 1
-        return 0
+        return 1 if self.motors_armed() else 0
     if HEARTBEAT.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED:
         return 1
     return 0
@@ -896,10 +876,7 @@ def gps_velocity_df(GPS):
 
 def distance_gps2(GPS, GPS2):
     '''distance between two points'''
-    if GPS.TimeMS != GPS2.TimeMS:
-        # reject messages not time aligned
-        return None
-    return distance_two(GPS, GPS2)
+    return None if GPS.TimeMS != GPS2.TimeMS else distance_two(GPS, GPS2)
 
 
 radius_of_earth = 6378100.0 # in meters
@@ -937,17 +914,17 @@ def gps_offset(lat, lon, east, north):
 ekf_home = None
 
 def ekf1_pos(EKF1):
-  '''calculate EKF position when EKF disabled'''
-  global ekf_home
-  from . import mavutil
-  self = mavutil.mavfile_global
-  if ekf_home is None:
-      if not 'GPS' in self.messages or self.messages['GPS'].Status != 3:
-          return None
-      ekf_home = self.messages['GPS']
-      (ekf_home.Lat, ekf_home.Lng) = gps_offset(ekf_home.Lat, ekf_home.Lng, -EKF1.PE, -EKF1.PN)
-  (lat,lon) = gps_offset(ekf_home.Lat, ekf_home.Lng, EKF1.PE, EKF1.PN)
-  return (lat, lon)
+    '''calculate EKF position when EKF disabled'''
+    global ekf_home
+    from . import mavutil
+    if ekf_home is None:
+        self = mavutil.mavfile_global
+        if 'GPS' not in self.messages or self.messages['GPS'].Status != 3:
+            return None
+        ekf_home = self.messages['GPS']
+        (ekf_home.Lat, ekf_home.Lng) = gps_offset(ekf_home.Lat, ekf_home.Lng, -EKF1.PE, -EKF1.PN)
+    (lat,lon) = gps_offset(ekf_home.Lat, ekf_home.Lng, EKF1.PE, EKF1.PN)
+    return (lat, lon)
 
 def quat_to_euler(q):
   '''
@@ -1067,9 +1044,7 @@ def armed(HEARTBEAT):
     from pymavlink import mavutil
     if HEARTBEAT.type == mavutil.mavlink.MAV_TYPE_GCS:
         self = mavutil.mavfile_global
-        if self.motors_armed():
-            return 1
-        return 0
+        return 1 if self.motors_armed() else 0
     if HEARTBEAT.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED:
         return 1
     return 0
@@ -1181,8 +1156,9 @@ def interpolate_table(table, latitude_deg, longitude_deg):
     data_min = ((longitude_deg - min_lon) / SAMPLING_RES) * (data_se - data_sw) + data_sw
     data_max = ((longitude_deg - min_lon) / SAMPLING_RES) * (data_ne - data_nw) + data_nw
 
-    value = ((latitude_deg - min_lat) / SAMPLING_RES) * (data_max - data_min) + data_min
-    return value
+    return ((latitude_deg - min_lat) / SAMPLING_RES) * (
+        data_max - data_min
+    ) + data_min
 
 
 '''
@@ -1272,9 +1248,7 @@ def expected_mag(GPS,ATT,roll_adjust=0,pitch_adjust=0,yaw_adjust=0):
     rot = Matrix3()
     rot.from_euler(radians(roll), radians(pitch), radians(yaw))
 
-    field = rot.transposed() * earth_field
-
-    return field
+    return rot.transposed() * earth_field
 
 def expected_mag_yaw(GPS,ATT,MAG,roll_adjust=0,pitch_adjust=0,yaw_adjust=0):
     '''return expected magnetic field for a location and attitude'''
@@ -1295,9 +1269,7 @@ def expected_mag_yaw(GPS,ATT,MAG,roll_adjust=0,pitch_adjust=0,yaw_adjust=0):
     rot = Matrix3()
     rot.from_euler(radians(roll), radians(pitch), radians(yaw))
 
-    field = rot.transposed() * earth_field
-
-    return field
+    return rot.transposed() * earth_field
 
 def earth_field_error(GPS,NKF2):
     '''return vector error in earth field estimate'''
@@ -1306,8 +1278,7 @@ def earth_field_error(GPS,NKF2):
     if earth_field is None:
         return Vector3(0,0,0)
     ef = Vector3(NKF2.MN,NKF2.ME,NKF2.MD)
-    ret = ef - earth_field
-    return ret
+    return ef - earth_field
 
 
 def distance_home_df(GPS,ORGN):
@@ -1323,8 +1294,7 @@ def airspeed_estimate(GLOBAL_POSITION_INT,WIND):
     wind3d = Vector3(wind.speed*math.cos(math.radians(wind.direction)),
                      wind.speed*math.sin(math.radians(wind.direction)), 0)
     ground = Vector3(gpi.vx*0.01, gpi.vy*0.01, 0)
-    airspeed = (ground + wind3d).length()
-    return airspeed
+    return (ground + wind3d).length()
 
 
 def distance_from(GPS_RAW1, lat, lon):
@@ -1347,8 +1317,7 @@ def distance_from(GPS_RAW1, lat, lon):
 
     a = sin(0.5*dLat)**2 + sin(0.5*dLon)**2 * cos(lat1) * cos(lat2)
     c = 2.0 * atan2(sqrt(a), sqrt(1.0-a))
-    ground_dist = 6371 * 1000 * c
-    return ground_dist
+    return 6371 * 1000 * c
 
 def distance_lat_lon(lat1, lon1, lat2, lon2):
     '''distance between two points'''
@@ -1357,14 +1326,11 @@ def distance_lat_lon(lat1, lon1, lat2, lon2):
 
     a = sin(0.5*dLat)**2 + sin(0.5*dLon)**2 * cos(lat1) * cos(lat2)
     c = 2.0 * atan2(sqrt(a), sqrt(1.0-a))
-    ground_dist = 6371 * 1000 * c
-    return ground_dist
+    return 6371 * 1000 * c
 
 def constrain(v, minv, maxv):
-    if v < minv:
-        v = minv
-    if v > maxv:
-        v = maxv
+    v = max(v, minv)
+    v = min(v, maxv)
     return v
 
 def sim_body_rates(SIM):

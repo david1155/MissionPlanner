@@ -28,13 +28,9 @@ parser.add_argument('build_dir', nargs=1)
 parser.add_argument('--build', action='append')
 args = parser.parse_args()
 
-buildlist = None
-
 message_names_enum = ''
 
-if args.build:
-    buildlist = set(args.build)
-
+buildlist = set(args.build) if args.build else None
 namespace_paths = [os.path.abspath(path) for path in args.namespace_dir]
 build_dir = os.path.abspath(args.build_dir[0])
 
@@ -56,9 +52,9 @@ for template in templates:
         template['source'] = f.read()
 
 def build_message(msg_name):
-    print ('building %s' % (msg_name))
+    print(f'building {msg_name}')
     msg = message_dict[msg_name]
-    with open('%s.json' % (msg_name), 'w') as f:
+    with open(f'{msg_name}.json', 'w') as f:
         f.write(json.dumps(msg, default=lambda x: x.__dict__))
     for template in templates:
         output = em.expand(template['source'], msg=msg)
@@ -101,31 +97,33 @@ if __name__ == '__main__':
             build_message(msg_name)
             msg = message_dict[msg_name]
             print (dir(msg))
-            if not msg.default_dtid is None and msg.kind == msg.KIND_MESSAGE:
+            if msg.default_dtid is not None and msg.kind == msg.KIND_MESSAGE:
                 message_names_enum += '\t(typeof(%s), %s, 0x%08X, (b,s) => %s.ByteArrayToDroneCANMsg(b,s)),\n' % (msg.full_name.replace('.','_'), msg.default_dtid, msg.get_data_type_signature(),msg.full_name.replace('.','_'))
 
-            if not msg.default_dtid is None and msg.kind == msg.KIND_SERVICE:
+            if msg.default_dtid is not None and msg.kind == msg.KIND_SERVICE:
                 message_names_enum += '\t(typeof(%s_req), %s, 0x%08X, (b,s) => %s_req.ByteArrayToDroneCANMsg(b,s)),\n' % (msg.full_name.replace('.','_'), msg.default_dtid, msg.get_data_type_signature(),msg.full_name.replace('.','_'))
                 message_names_enum += '\t(typeof(%s_res), %s, 0x%08X, (b,s) => %s_res.ByteArrayToDroneCANMsg(b,s)),\n' % (msg.full_name.replace('.','_'), msg.default_dtid, msg.get_data_type_signature(),msg.full_name.replace('.','_'))
     else:
         for msg_name in [msg.full_name for msg in messages]:
-            print ('building %s' % (msg_name,))
+            print(f'building {msg_name}')
             builtlist.add(msg_name)
             #pool.apply_async(build_message, (msg_name,))
             build_message(msg_name)
             msg = message_dict[msg_name]
             print (dir(msg))
-            if not msg.default_dtid is None and msg.kind == msg.KIND_MESSAGE:
+            if msg.default_dtid is not None and msg.kind == msg.KIND_MESSAGE:
                 message_names_enum += '\t(typeof(%s), %s, 0x%08X, (b,s) => %s.ByteArrayToDroneCANMsg(b,s)),\n' % (msg.full_name.replace('.','_'), msg.default_dtid, msg.get_data_type_signature(),msg.full_name.replace('.','_'))
 
-            if not msg.default_dtid is None and msg.kind == msg.KIND_SERVICE:
+            if msg.default_dtid is not None and msg.kind == msg.KIND_SERVICE:
                 message_names_enum += '\t(typeof(%s_req), %s, 0x%08X, (b,s) => %s_req.ByteArrayToDroneCANMsg(b,s)),\n' % (msg.full_name.replace('.','_'), msg.default_dtid, msg.get_data_type_signature(),msg.full_name.replace('.','_'))
                 message_names_enum += '\t(typeof(%s_res), %s, 0x%08X, (b,s) => %s_res.ByteArrayToDroneCANMsg(b,s)),\n' % (msg.full_name.replace('.','_'), msg.default_dtid, msg.get_data_type_signature(),msg.full_name.replace('.','_'))
- 
+
     pool.close()
     pool.join()
 
-    assert buildlist is None or not buildlist-builtlist, "%s not built" % (buildlist-builtlist,)
+    assert (
+        buildlist is None or not buildlist - builtlist
+    ), f"{buildlist - builtlist} not built"
 
     print ('test')
     with open('messages.cs', 'w') as f:

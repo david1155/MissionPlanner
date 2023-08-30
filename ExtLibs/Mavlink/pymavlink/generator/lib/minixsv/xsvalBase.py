@@ -176,7 +176,7 @@ class XsValBase:
     ########################################
     # expand redefine directives
     #
-    def _expandRedefines (self, baseTree, tree, includeDict, lookupDict):
+    def _expandRedefines(self, baseTree, tree, includeDict, lookupDict):
         rootNode = tree.getRootNode()
         namespaceURI  = rootNode.getNamespaceURI()
 
@@ -200,19 +200,25 @@ class XsValBase:
                 elif childNode.getLocalName() in ("annotation"):
                     continue
                 else:
-                    self._addError ("%s not allowed as child of 'redefine'!" %repr(childNode.getLocalName()), childNode)
+                    self._addError(
+                        f"{repr(childNode.getLocalName())} not allowed as child of 'redefine'!",
+                        childNode,
+                    )
                     continue
 
                 redefType = NsNameTuple ( (expNamespace, childNode.getAttribute("name")) )
                 if xsdDict.has_key(redefType):
-                    orgRedefType = NsNameTuple( (expNamespace, redefType[1]+"__ORG") )
+                    orgRedefType = NsNameTuple((expNamespace, f"{redefType[1]}__ORG"))
                     if not xsdDict.has_key(orgRedefType):
                         xsdDict[orgRedefType] = xsdDict[redefType]
 #                    else:
 #                        self._addError ("Duplicate component %s found within 'redefine'!" %repr(redefType), childNode)
                     xsdDict[redefType] = childNode
                 else:
-                    self._addError ("Type %s not found in imported schema file!" %(repr(redefType)), childNode)
+                    self._addError(
+                        f"Type {repr(redefType)} not found in imported schema file!",
+                        childNode,
+                    )
 
                 dummy, attrNodes, attrNsNameFirst = childNode.getXPathList (".//@base | .//@ref" % vars())
                 for attrNode in attrNodes:
@@ -221,15 +227,15 @@ class XsValBase:
                     elif attrNode.hasAttribute("ref"):
                         attribute = "ref"
                     if attrNode.getQNameAttribute(attribute) == redefType:
-                        attrNode[attribute] = attrNode[attribute] + "__ORG"
-                
+                        attrNode[attribute] = f"{attrNode[attribute]}__ORG"
+
             rootNode.removeChild (redefineNode)
 
 
     ########################################
     # expand import directives
     #
-    def _expandImports (self, baseTree, tree, includeDict, lookupDict):
+    def _expandImports(self, baseTree, tree, includeDict, lookupDict):
         rootNode = tree.getRootNode()
         namespaceURI  = rootNode.getNamespaceURI()
 
@@ -240,13 +246,12 @@ class XsValBase:
                 continue
 
             includeUrl = includeNode.getAttributeOrDefault("schemaLocation", None)
-            if expNamespace != None and includeUrl == None:
-                includeUrl = expNamespace + ".xsd"
-            if includeUrl != None:            
-                if expNamespace not in (XML_NAMESPACE, XSI_NAMESPACE):
-                    self._includeSchemaFile (baseTree, tree, includeNode, expNamespace, includeUrl, includeNode.getBaseUrl(), includeDict, lookupDict)
-            else:
+            if expNamespace != None and includeUrl is None:
+                includeUrl = f"{expNamespace}.xsd"
+            if includeUrl is None:
                 self._addError ("schemaLocation attribute for import directive missing!",  includeNode)
+            elif expNamespace not in (XML_NAMESPACE, XSI_NAMESPACE):
+                self._includeSchemaFile (baseTree, tree, includeNode, expNamespace, includeUrl, includeNode.getBaseUrl(), includeDict, lookupDict)
             rootNode.removeChild (includeNode)
 
 
@@ -377,7 +382,7 @@ class XsValBase:
     ########################################
     # validate inputNode against complexType node
     #
-    def _checkComplexTypeTag (self, xsdParentNode, xsdNode, inputNode, inputChildIndex, usedAsBaseType=None):
+    def _checkComplexTypeTag(self, xsdParentNode, xsdNode, inputNode, inputChildIndex, usedAsBaseType=None):
         baseTypeAttributes = {}
 
         complexContentNode = xsdNode.getFirstChildNS(self.xsdNsURI, "complexContent")
@@ -388,7 +393,7 @@ class XsValBase:
             inputChildIndex, baseTypeAttributes = self._checkSimpleContentTag (xsdParentNode, simpleContentNode, inputNode, inputChildIndex, usedAsBaseType, baseTypeAttributes)
         else:
             inputChildIndex, baseTypeAttributes = self._checkComplexTypeContent (xsdParentNode, xsdNode, inputNode, inputChildIndex, usedAsBaseType, baseTypeAttributes)
-            if usedAsBaseType == None:
+            if usedAsBaseType is None:
                 self._checkMixed (xsdParentNode, xsdNode, inputNode)
         return inputChildIndex, baseTypeAttributes
 
@@ -421,12 +426,9 @@ class XsValBase:
                 inputChildIndex, baseTypeAttributes = self._checkRestrictionSimpleContent (xsdParentNode, xsdNode, restrictionNode, inputNode, inputChildIndex, usedAsBaseType, baseTypeAttributes)
         return inputChildIndex, baseTypeAttributes
 
-    def _checkExtensionComplexContent (self, xsdParentNode, xsdNode, inputNode, inputChildIndex, usedAsBaseType, baseTypeAttributes):
+    def _checkExtensionComplexContent(self, xsdParentNode, xsdNode, inputNode, inputChildIndex, usedAsBaseType, baseTypeAttributes):
         baseNsName = xsdNode.getQNameAttribute("base")
-        if usedAsBaseType == None: 
-            extUsedAsBaseType = "extension"
-        else:
-            extUsedAsBaseType = usedAsBaseType
+        extUsedAsBaseType = "extension" if usedAsBaseType is None else usedAsBaseType
         inputChildIndex, baseTypeAttributes = self._checkComplexTypeTag (xsdParentNode, self.xsdTypeDict[baseNsName], inputNode, inputChildIndex, extUsedAsBaseType)
 
         inputChildIndex, baseTypeAttributes = self._checkComplexTypeContent (xsdParentNode, xsdNode, inputNode, inputChildIndex, usedAsBaseType, baseTypeAttributes)
@@ -459,7 +461,7 @@ class XsValBase:
         inputChildIndex, baseTypeAttributes = self._checkSimpleTypeContent (xsdParentNode, xsdNode, inputNode, inputChildIndex, usedAsBaseType, baseTypeAttributes)
         return inputChildIndex, baseTypeAttributes
 
-    def _checkComplexTypeContent (self, xsdParentNode, xsdNode, inputNode, inputChildIndex, usedAsBaseType, baseTypeAttributes):
+    def _checkComplexTypeContent(self, xsdParentNode, xsdNode, inputNode, inputChildIndex, usedAsBaseType, baseTypeAttributes):
         if inputNode.getAttribute((XSI_NAMESPACE, "nil")) == "true":
             if inputNode.getChildren() != [] or collapseString(inputNode.getElementValue()) != "":
                 self._addError ("Element must be empty (xsi:nil='true')(2)!" , inputNode, 0)
@@ -471,11 +473,13 @@ class XsValBase:
                     if validChildTag.getLocalName() not in ("attribute", "attributeGroup", "anyAttribute"):
                         inputChildIndex = self._checkParticle (validChildTag, inputNode, childTags, inputChildIndex)
 
-                if usedAsBaseType == None and inputChildIndex < len (childTags):
+                if usedAsBaseType is None and inputChildIndex < len(childTags):
                     inputNsName = inputNode.getNsName()
                     childNsName = childTags[inputChildIndex].getNsName()
-                    self._addError ("Unexpected or invalid child tag %s found in tag %s!"
-                                    %(repr(childNsName), repr(inputNsName)), childTags[inputChildIndex])
+                    self._addError(
+                        f"Unexpected or invalid child tag {repr(childNsName)} found in tag {repr(inputNsName)}!",
+                        childTags[inputChildIndex],
+                    )
 
         if usedAsBaseType in (None,):
             self._checkAttributeTags (xsdParentNode, xsdNode, inputNode, baseTypeAttributes)
@@ -485,9 +489,12 @@ class XsValBase:
 
         return inputChildIndex, baseTypeAttributes
 
-    def _checkSimpleTypeContent (self, xsdParentNode, xsdNode, inputNode, inputChildIndex, usedAsBaseType, baseTypeAttributes):
+    def _checkSimpleTypeContent(self, xsdParentNode, xsdNode, inputNode, inputChildIndex, usedAsBaseType, baseTypeAttributes):
         if inputNode.getChildren() != []:
-            raise TagException ("No child tags are allowed for element %s!" %repr(inputNode.getNsName()), inputNode)
+            raise TagException(
+                f"No child tags are allowed for element {repr(inputNode.getNsName())}!",
+                inputNode,
+            )
 
         if usedAsBaseType in (None,):
             self._checkAttributeTags (xsdParentNode, xsdNode, inputNode, baseTypeAttributes)
@@ -501,10 +508,13 @@ class XsValBase:
     ########################################
     # validate mixed content (1)
     #
-    def _checkMixed (self, xsdParentNode, xsdNode, inputNode):
+    def _checkMixed(self, xsdParentNode, xsdNode, inputNode):
         if xsdNode.getAttributeOrDefault ("mixed", "false") == "false":
-            if not collapseString(inputNode.getElementValue()) in ("", " "):
-                self._addError ("Mixed content not allowed for %s!" %repr(inputNode.getTagName()), inputNode)
+            if collapseString(inputNode.getElementValue()) not in ("", " "):
+                self._addError(
+                    f"Mixed content not allowed for {repr(inputNode.getTagName())}!",
+                    inputNode,
+                )
         else: # mixed = true
             self._checkUrType(xsdParentNode, inputNode)
 
@@ -512,10 +522,9 @@ class XsValBase:
     ########################################
     # check ur-type
     #
-    def _checkUrType (self, xsdNode, inputNode):
-        prefix = xsdNode.getPrefix()
-        if prefix:
-            xsdNode["__CONTENTTYPE__"] = "%s:string" %xsdNode.getPrefix()
+    def _checkUrType(self, xsdNode, inputNode):
+        if prefix := xsdNode.getPrefix():
+            xsdNode["__CONTENTTYPE__"] = f"{xsdNode.getPrefix()}:string"
         else:
             xsdNode["__CONTENTTYPE__"] = "string"
         self._checkElementValue (xsdNode, "__CONTENTTYPE__", inputNode)
@@ -636,9 +645,12 @@ class XsValBase:
     ########################################
     # validate element inputNode against simple type definition
     #
-    def _checkElementSimpleType (self, xsdNode, xsdTypeAttr, inputNode):
+    def _checkElementSimpleType(self, xsdNode, xsdTypeAttr, inputNode):
         if inputNode.getChildren() != []:
-            raise TagException ("No child tags are allowed for element %s!" %(repr(inputNode.getNsName())), inputNode)
+            raise TagException(
+                f"No child tags are allowed for element {repr(inputNode.getNsName())}!",
+                inputNode,
+            )
 
         self._checkElementValue (xsdNode, xsdTypeAttr, inputNode)
 
@@ -811,9 +823,13 @@ class XsValBase:
     ########################################
     # validate inputNode against any node
     #
-    def _checkAnyTag (self, xsdNode, inputParentNode, inputNodeList, currIndex):
+    def _checkAnyTag(self, xsdNode, inputParentNode, inputNodeList, currIndex):
         if currIndex >= len (inputNodeList):
-            raise TagException ("Missing child tag (anyTag) in tag %s!" %repr(inputParentNode.getTagName()), inputParentNode, 1)
+            raise TagException(
+                f"Missing child tag (anyTag) in tag {repr(inputParentNode.getTagName())}!",
+                inputParentNode,
+                1,
+            )
 
         inputNode = inputNodeList[currIndex]
         inputNamespace = inputNode.getNamespaceURI()
@@ -826,7 +842,7 @@ class XsValBase:
     ########################################
     # validate inputNode against particle
     #
-    def _checkParticle (self, xsdNode, inputParentNode, inputNodeList, currIndex):
+    def _checkParticle(self, xsdNode, inputParentNode, inputNodeList, currIndex):
         xsdTagName = xsdNode.getLocalName()
         if xsdTagName == "element":
             currIndex = self._checkList (self._checkElementTag, xsdNode, inputParentNode, inputNodeList, currIndex)
@@ -840,26 +856,22 @@ class XsValBase:
             currIndex = self._checkList (self._checkAllTag, xsdNode, inputParentNode, inputNodeList, currIndex)
         elif xsdTagName == "any":
             currIndex = self._checkList (self._checkAnyTag, xsdNode, inputParentNode, inputNodeList, currIndex)
-        elif xsdTagName == "annotation":
-            # TODO: really nothing to check??
-            pass
-        else:
-            self._addError ("Internal error: Invalid tag %s found!" %repr(xsdTagName))
+        elif xsdTagName != "annotation":
+            self._addError(f"Internal error: Invalid tag {repr(xsdTagName)} found!")
         return currIndex
 
 
     ########################################
     # validate attributes of inputNode against complexType node
     #
-    def _checkAttributeTags (self, parentNode, xsdNode, inputNode, validAttrDict):
+    def _checkAttributeTags(self, parentNode, xsdNode, inputNode, validAttrDict):
         # retrieve all valid attributes for this element from the schema file
         self._updateAttributeDict (xsdNode, validAttrDict)
-        inputAttrDict = {}
-        for iAttrName, iAttrValue in inputNode.getAttributeDict().items():
-            # skip namespace declarations
-            if iAttrName[0] != XMLNS_NAMESPACE and iAttrName[1] != "xmlns":
-                inputAttrDict[iAttrName] = iAttrValue
-
+        inputAttrDict = {
+            iAttrName: iAttrValue
+            for iAttrName, iAttrValue in inputNode.getAttributeDict().items()
+            if iAttrName[0] != XMLNS_NAMESPACE and iAttrName[1] != "xmlns"
+        }
         for qAttrName, validAttrEntry in validAttrDict.items():
             attrRefNode = validAttrEntry["RefNode"]
             # global attributes use always form "qualified"
@@ -870,66 +882,85 @@ class XsValBase:
             attrRefNode.setAttribute ("form", attributeForm)
             self._checkAttributeTag (qAttrName, validAttrEntry["Node"], attrRefNode, inputNode, inputAttrDict)
 
-        for inputAttribute in inputAttrDict.keys():
+        for inputAttribute in inputAttrDict:
             if inputAttribute == (XSI_NAMESPACE, "type"):
-                pass # for attribute xsi:type refer _checkElementTag
-            elif inputAttribute == (XSI_NAMESPACE, "nil"):
+                continue
+            if inputAttribute == (XSI_NAMESPACE, "nil"):
                 if parentNode.getAttributeOrDefault ("nillable", "false") == "false":
-                    self._addError ("Tag %s hasn't been defined as nillable!" %repr(inputNode.getTagName()), inputNode)
+                    self._addError(
+                        f"Tag {repr(inputNode.getTagName())} hasn't been defined as nillable!",
+                        inputNode,
+                    )
             elif inputNode == self.inputRoot and inputAttribute in ((XSI_NAMESPACE, "noNamespaceSchemaLocation"), (XSI_NAMESPACE, "schemaLocation")):
                 pass
             elif validAttrDict.has_key("__ANY_ATTRIBUTE__"):
                 xsdNode = validAttrDict["__ANY_ATTRIBUTE__"]["Node"]
                 try:
                     inputNamespace = inputAttribute[0]
-                    if inputAttribute[0] == None and xsdNode.getAttribute("form") == "unqualified":
+                    if (
+                        inputNamespace is None
+                        and xsdNode.getAttribute("form") == "unqualified"
+                    ):
                         # TODO: Check: If only local namespace is allowed, do not use target namespace???
                         if xsdNode.getAttribute("namespace") != "##local":
                             inputNamespace = self._getTargetNamespace(xsdNode)
                     self._checkWildcardAttribute (xsdNode, inputNode, inputAttribute, inputNamespace, inputAttrDict)
                 except TagException:
-                    self._addError ("Unexpected attribute %s in Tag %s!" %(repr(inputAttribute), repr(inputNode.getTagName())), inputNode)
+                    self._addError(
+                        f"Unexpected attribute {repr(inputAttribute)} in Tag {repr(inputNode.getTagName())}!",
+                        inputNode,
+                    )
             else:
-                self._addError ("Unexpected attribute %s in Tag %s!" %(repr(inputAttribute), repr(inputNode.getTagName())), inputNode)
+                self._addError(
+                    f"Unexpected attribute {repr(inputAttribute)} in Tag {repr(inputNode.getTagName())}!",
+                    inputNode,
+                )
 
 
     ########################################
     # validate one attribute (defined by xsdNode) of inputNode
     #
-    def _checkAttributeTag (self, qAttrName, xsdAttrNode, xsdAttrRefNode, inputNode, inputAttrDict):
+    def _checkAttributeTag(self, qAttrName, xsdAttrNode, xsdAttrRefNode, inputNode, inputAttrDict):
         targetNamespace = self._getTargetNamespace(xsdAttrNode)
         if qAttrName[0] == targetNamespace and xsdAttrRefNode.getAttribute("form") == "unqualified":
             qAttrName = NsNameTupleFactory( (None, qAttrName[1]) )
-        
+
         use = xsdAttrNode.getAttribute("use")
-        if use == None: use = xsdAttrRefNode.getAttributeOrDefault ("use", "optional")
+        if use is None: use = xsdAttrRefNode.getAttributeOrDefault ("use", "optional")
         fixedValue = xsdAttrNode.getAttribute("fixed")
-        if fixedValue == None: 
+        if fixedValue is None: 
             fixedValue = xsdAttrRefNode.getAttribute("fixed")
 
         if inputAttrDict.has_key(qAttrName):
             if use == "prohibited":
-                self._addError ("Attribute %s is prohibited in this context!" %repr(qAttrName[1]), inputNode)
+                self._addError(
+                    f"Attribute {repr(qAttrName[1])} is prohibited in this context!",
+                    inputNode,
+                )
         elif inputAttrDict.has_key((targetNamespace, qAttrName[1])):
-            self._addError ("Local attribute %s must be unqualified!" %(repr(qAttrName)), inputNode)
+            self._addError(
+                f"Local attribute {repr(qAttrName)} must be unqualified!",
+                inputNode,
+            )
             del inputAttrDict[(targetNamespace, qAttrName[1])]
         elif inputAttrDict.has_key((None, qAttrName[1])) and qAttrName[0] == targetNamespace:
-            self._addError ("Attribute %s must be qualified!" %repr(qAttrName[1]), inputNode)
+            self._addError(f"Attribute {repr(qAttrName[1])} must be qualified!", inputNode)
             del inputAttrDict[(None, qAttrName[1])]
-        else:
-            if use == "required":
-                self._addError ("Attribute %s is missing!" %(repr(qAttrName)), inputNode)
-            elif use == "optional":
-                if xsdAttrRefNode.hasAttribute("default"):
-                    if not (inputNode.getNsName() == (XSD_NAMESPACE, "element") and
-                            inputNode.hasAttribute("ref") and
-                            xsdAttrRefNode.getAttribute("name") == "nillable"):
-                        defaultValue = xsdAttrRefNode.getAttribute("default")
-                        inputNode.setAttribute(qAttrName, defaultValue)
-                        inputAttrDict[qAttrName] = defaultValue
-                elif fixedValue != None:
-                    inputNode.setAttribute(qAttrName, fixedValue)
-                    inputAttrDict[qAttrName] = fixedValue
+        elif use == "required":
+            self._addError(f"Attribute {repr(qAttrName)} is missing!", inputNode)
+        elif use == "optional":
+            if xsdAttrRefNode.hasAttribute("default"):
+                if (
+                    inputNode.getNsName() != (XSD_NAMESPACE, "element")
+                    or not inputNode.hasAttribute("ref")
+                    or xsdAttrRefNode.getAttribute("name") != "nillable"
+                ):
+                    defaultValue = xsdAttrRefNode.getAttribute("default")
+                    inputNode.setAttribute(qAttrName, defaultValue)
+                    inputAttrDict[qAttrName] = defaultValue
+            elif fixedValue != None:
+                inputNode.setAttribute(qAttrName, fixedValue)
+                inputAttrDict[qAttrName] = fixedValue
 
         if inputAttrDict.has_key(qAttrName):
             attributeValue = inputAttrDict[qAttrName]
@@ -941,19 +972,22 @@ class XsValBase:
     ########################################
     # update dictionary of valid attributes
     #
-    def _updateAttributeDict (self, xsdNode, validAttrDict, checkForDuplicateAttr=0, recursionKeys=None):
+    def _updateAttributeDict(self, xsdNode, validAttrDict, checkForDuplicateAttr=0, recursionKeys=None):
         # TODO: Why can recursionKeys not be initialized by default variable??
-        if recursionKeys == None: recursionKeys = {} 
+        if recursionKeys is None: recursionKeys = {}
         validAttributeNodes = xsdNode.getChildrenNS(self.xsdNsURI, "attribute")
         for validAttrGroup in xsdNode.getChildrenNS(self.xsdNsURI, "attributeGroup"):
             refNsName = validAttrGroup.getQNameAttribute("ref")
             if self.xsdAttrGroupDict.has_key(refNsName):
                 if recursionKeys.has_key(refNsName):
-                    self._addError ("Circular definition for attribute group %s detected!" %(repr(refNsName)), validAttrGroup)
+                    self._addError(
+                        f"Circular definition for attribute group {repr(refNsName)} detected!",
+                        validAttrGroup,
+                    )
                     continue
                 recursionKeys[refNsName] = 1
                 self._updateAttributeDict(self.xsdAttrGroupDict[refNsName], validAttrDict, checkForDuplicateAttr, recursionKeys)
-               
+
 
         for validAttributeNode in validAttributeNodes:
             if validAttributeNode.hasAttribute("ref"):
@@ -963,9 +997,12 @@ class XsValBase:
                 attrKey = validAttributeNode.getQNameAttribute("name")
                 attrKey = (self._getTargetNamespace(validAttributeNode), validAttributeNode.getAttribute("name"))
                 attributeRefNode = validAttributeNode
-                
+
             if checkForDuplicateAttr and validAttrDict.has_key(attrKey):
-                self._addError ("Duplicate attribute %s found!" %repr(attrKey), validAttributeNode)
+                self._addError(
+                    f"Duplicate attribute {repr(attrKey)} found!",
+                    validAttributeNode,
+                )
             else:
                 validAttrDict[attrKey] = {"Node":validAttributeNode, "RefNode":attributeRefNode}
 
@@ -1015,7 +1052,7 @@ class XsValBase:
     ########################################
     # validate wildcard specification of anyElement/anyAttribute
     #
-    def _checkWildcardAttribute (self, xsdNode, inputNode, qAttrName, inputNamespace, inputAttrDict):
+    def _checkWildcardAttribute(self, xsdNode, inputNode, qAttrName, inputNamespace, inputAttrDict):
         processContents = xsdNode.getAttributeOrDefault("processContents", "strict")
 
         self._checkInputNamespace (xsdNode, inputNode, inputNamespace)
@@ -1031,30 +1068,38 @@ class XsValBase:
                 attrNode = self.xsdAttributeDict[qAttrName]
                 self._checkAttributeTag (qAttrName, attrNode, attrNode, inputNode, inputAttrDict)
             else:
-                self._addError ("Attribute definition %s not found in schema file!" %repr(qAttrName), inputNode)
+                self._addError(
+                    f"Attribute definition {repr(qAttrName)} not found in schema file!",
+                    inputNode,
+                )
                 
 
     ########################################
     # validate wildcard specification of anyElement/anyAttribute
     #
-    def _checkInputNamespace (self, xsdNode, inputNode, inputNamespace):
+    def _checkInputNamespace(self, xsdNode, inputNode, inputNamespace):
         targetNamespace = self._getTargetNamespace(xsdNode)
         namespaces = xsdNode.getAttributeOrDefault("namespace", "##any")
         if namespaces == "##any":
             pass   # nothing to check
         elif namespaces == "##other":
-            if inputNamespace == targetNamespace or inputNamespace == None:
+            if inputNamespace == targetNamespace or inputNamespace is None:
                 raise TagException ("Node or attribute must not be part of target namespace or local!", inputNode)
         else:
             for namespace in string.split(collapseString(namespaces), " "):
-                if namespace == "##local" and inputNamespace == None:
-                    break
-                elif namespace == "##targetNamespace" and inputNamespace == targetNamespace:
-                    break
-                elif namespace == inputNamespace:
+                if (
+                    namespace == "##local"
+                    and inputNamespace is None
+                    or namespace == "##targetNamespace"
+                    and inputNamespace == targetNamespace
+                    or namespace == inputNamespace
+                ):
                     break
             else:
-                raise TagException ("Node or attribute is not part of namespace %s!" %repr(namespaces), inputNode)
+                raise TagException(
+                    f"Node or attribute is not part of namespace {repr(namespaces)}!",
+                    inputNode,
+                )
 
 
     ########################################
@@ -1181,7 +1226,7 @@ class XsValBase:
     ########################################
     # check input element form
     #
-    def _checkInputElementForm (self, xsdNode, xsdNodeNameAttr, inputNode):
+    def _checkInputElementForm(self, xsdNode, xsdNodeNameAttr, inputNode):
         targetNamespace = self._getTargetNamespace(xsdNode)
         nsNameAttr = (targetNamespace, xsdNodeNameAttr)
         if self.xsdElementDict.has_key(nsNameAttr) and self.xsdElementDict[nsNameAttr] == xsdNode:
@@ -1189,13 +1234,22 @@ class XsValBase:
         else:
             elementForm = xsdNode.getAttributeOrDefault ("form", self._getElementFormDefault(xsdNode))
         if elementForm == "qualified":
-            if inputNode.getNamespaceURI() == None:
+            if inputNode.getNamespaceURI() is None:
                 if targetNamespace != None:
-                    self._addError ("Element %s must be qualified!" %repr(xsdNodeNameAttr), inputNode)
+                    self._addError(
+                        f"Element {repr(xsdNodeNameAttr)} must be qualified!",
+                        inputNode,
+                    )
             elif inputNode.getNamespaceURI() != targetNamespace:
-                self._addError ("%s undefined in specified namespace!" %repr(xsdNodeNameAttr), inputNode)
+                self._addError(
+                    f"{repr(xsdNodeNameAttr)} undefined in specified namespace!",
+                    inputNode,
+                )
         elif elementForm == "unqualified" and inputNode.getNamespaceURI() != None:
-            self._addError ("Local element %s must be unqualified!" %repr(xsdNodeNameAttr), inputNode)
+            self._addError(
+                f"Local element {repr(xsdNodeNameAttr)} must be unqualified!",
+                inputNode,
+            )
 
 
     ########################################
@@ -1234,16 +1288,12 @@ class XsValBase:
     ########################################
     # retrieve basetypes from XML attribute (string format)
     #
-    def _setBaseTypes (self, xsdNode):
-        if xsdNode.getAttribute("BaseTypes") != None:
-            baseTypes = string.split(xsdNode["BaseTypes"])
-            baseTypeList = map (lambda basetype: NsNameTupleFactory(basetype), baseTypes)
-            if baseTypeList != []:
-                return baseTypeList
-            else:
-                return None
-        else:
+    def _setBaseTypes(self, xsdNode):
+        if xsdNode.getAttribute("BaseTypes") is None:
             return None
+        baseTypes = string.split(xsdNode["BaseTypes"])
+        baseTypeList = map (lambda basetype: NsNameTupleFactory(basetype), baseTypes)
+        return baseTypeList if baseTypeList != [] else None
     
     ########################################
     # retrieve target namespace attribute for given node

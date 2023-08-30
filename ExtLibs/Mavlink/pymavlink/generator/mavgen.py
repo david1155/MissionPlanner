@@ -57,8 +57,11 @@ def mavgen(opts, args):
             print("WARNING: Failed to import lxml module etree. Are lxml, libxml2 and libxslt installed? XML validation will not be performed", file=sys.stderr)
             opts.validate = False
         except etree.XMLSyntaxError as err:
-            print("WARNING: XML Syntax Errors detected in %s XML schema file. XML validation will not be performed" % schemaFile, file=sys.stderr)
-            print(str(err.error_log), file=sys.stderr)
+            print(
+                f"WARNING: XML Syntax Errors detected in {schemaFile} XML schema file. XML validation will not be performed",
+                file=sys.stderr,
+            )
+            print(err.error_log, file=sys.stderr)
             opts.validate = False
         except:
             print("WARNING: Unable to load XML validator libraries. XML validation will not be performed", file=sys.stderr)
@@ -77,14 +80,14 @@ def mavgen(opts, args):
 
                 # Validate XML file with XSD file if possible.
                 if opts.validate:
-                    print("Validating %s" % fname)
+                    print(f"Validating {fname}")
                     if not mavgen_validate(fname):
                         return False
                 else:
-                    print("Validation skipped for %s." % fname)
+                    print(f"Validation skipped for {fname}.")
 
                 # Parsing
-                print("Parsing %s" % fname)
+                print(f"Parsing {fname}")
                 xml.append(mavparse.MAVXML(fname, opts.wire_protocol))
 
                 # include message lengths and CRCs too
@@ -114,14 +117,17 @@ def mavgen(opts, args):
                 for element in xmldocument.iter('enum', 'entry', 'message', 'field'):
                     if forbidden_names_re.search(element.get('name')):
                         print("Validation error:", file=sys.stderr)
-                        print("Element : %s at line : %s contains forbidden word" % (element.tag, element.sourceline), file=sys.stderr)
+                        print(
+                            f"Element : {element.tag} at line : {element.sourceline} contains forbidden word",
+                            file=sys.stderr,
+                        )
                         xmlvalid = False
 
             return xmlvalid
         except etree.XMLSchemaError:
             return False
         except etree.DocumentInvalid as err:
-            sys.exit('ERROR: %s' % str(err.error_log))
+            sys.exit(f'ERROR: {str(err.error_log)}')
         return True
 
     # Process all XML files, validating them as necessary.
@@ -132,13 +138,13 @@ def mavgen(opts, args):
         all_files.add(fname)
 
         if opts.validate:
-            print("Validating %s" % fname)
+            print(f"Validating {fname}")
             if not mavgen_validate(fname):
                 return False
         else:
-            print("Validation skipped for %s." % fname)
+            print(f"Validation skipped for {fname}.")
 
-        print("Parsing %s" % fname)
+        print(f"Parsing {fname}")
         xml.append(mavparse.MAVXML(fname, opts.wire_protocol))
 
     # expand includes
@@ -190,7 +196,7 @@ def mavgen(opts, args):
         from . import mavgen_cpp11
         mavgen_cpp11.generate(opts.output, xml)
     else:
-        print("Unsupported language %s" % opts.language)
+        print(f"Unsupported language {opts.language}")
 
     return True
 
@@ -211,20 +217,20 @@ def mavgen_python_dialect(dialect, wire_protocol):
     dialects = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'dialects')
     mdef = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'message_definitions')
     if wire_protocol == mavparse.PROTOCOL_0_9:
-        py = os.path.join(dialects, 'v09', dialect + '.py')
-        xml = os.path.join(dialects, 'v09', dialect + '.xml')
+        py = os.path.join(dialects, 'v09', f'{dialect}.py')
+        xml = os.path.join(dialects, 'v09', f'{dialect}.xml')
         if not os.path.exists(xml):
-            xml = os.path.join(mdef, 'v0.9', dialect + '.xml')
+            xml = os.path.join(mdef, 'v0.9', f'{dialect}.xml')
     elif wire_protocol == mavparse.PROTOCOL_1_0:
-        py = os.path.join(dialects, 'v10', dialect + '.py')
-        xml = os.path.join(dialects, 'v10', dialect + '.xml')
+        py = os.path.join(dialects, 'v10', f'{dialect}.py')
+        xml = os.path.join(dialects, 'v10', f'{dialect}.xml')
         if not os.path.exists(xml):
-            xml = os.path.join(mdef, 'v1.0', dialect + '.xml')
+            xml = os.path.join(mdef, 'v1.0', f'{dialect}.xml')
     else:
-        py = os.path.join(dialects, 'v20', dialect + '.py')
-        xml = os.path.join(dialects, 'v20', dialect + '.xml')
+        py = os.path.join(dialects, 'v20', f'{dialect}.py')
+        xml = os.path.join(dialects, 'v20', f'{dialect}.xml')
         if not os.path.exists(xml):
-            xml = os.path.join(mdef, 'v1.0', dialect + '.xml')
+            xml = os.path.join(mdef, 'v1.0', f'{dialect}.xml')
     opts = Opts(py, wire_protocol)
 
     # Python 2 to 3 compatibility

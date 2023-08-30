@@ -64,7 +64,7 @@ GENXMLIF_DIR = os.path.dirname(__file__)
 # central function to choose the XML interface to be used
 #
 
-def chooseXmlIf (xmlIf, verbose=0, useCaching=1, processXInclude=1):
+def chooseXmlIf(xmlIf, verbose=0, useCaching=1, processXInclude=1):
     if xmlIf == XMLIF_MINIDOM:
         import xmlifMinidom
         return xmlifMinidom.XmlInterfaceMinidom(verbose, useCaching, processXInclude)
@@ -78,7 +78,7 @@ def chooseXmlIf (xmlIf, verbose=0, useCaching=1, processXInclude=1):
         return xmlifElementTree.XmlInterfaceElementTree(verbose, useCaching, processXInclude)
 
     else:
-        raise AttributeError, "Unknown XML interface: %s" %(xmlIf)
+        raise (AttributeError, f"Unknown XML interface: {xmlIf}")
 
 
 ########################################

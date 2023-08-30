@@ -31,7 +31,7 @@ class TestBrownout(Test):
 			return
 
 		# check for relative altitude at end
-		if "CTUN" in logdata.channels and "BarAlt" in logdata.channels["CTUN"]:
+		if "BarAlt" in logdata.channels["CTUN"]:
 			(finalAlt,finalAltLine) = logdata.channels["CTUN"]["BarAlt"].getNearestValue(logdata.lineCount, lookForwards=False)
 
 			finalAltMax = 3.0   # max alt offset that we'll still consider to be on the ground

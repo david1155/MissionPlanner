@@ -31,27 +31,15 @@ map = {
 def generate_message_header(f, xml_list):
     dedup = {}
     for xml in xml_list:
-        print("generate_message_header " + xml.basename)
+        print(f"generate_message_header {xml.basename}")
         if xml.little_endian:
             xml.mavlink_endian = "MAVLINK_LITTLE_ENDIAN"
         else:
             xml.mavlink_endian = "MAVLINK_BIG_ENDIAN"
 
-        if xml.crc_extra:
-            xml.crc_extra_define = "1"
-        else:
-            xml.crc_extra_define = "0"
-
-        if xml.command_24bit:
-            xml.command_24bit_define = "1"
-        else:
-            xml.command_24bit_define = "0"
-
-        if xml.sort_fields:
-            xml.aligned_fields_define = "1"
-        else:
-            xml.aligned_fields_define = "0"
-
+        xml.crc_extra_define = "1" if xml.crc_extra else "0"
+        xml.command_24bit_define = "1" if xml.command_24bit else "0"
+        xml.aligned_fields_define = "1" if xml.sort_fields else "0"
         # work out the included headers
         xml.include_list = []
         for i in xml.include:
@@ -96,7 +84,7 @@ def generate_message_header(f, xml_list):
         for m in xml.enum:
             for fe in m.entry[:]:
                 fe.name = fe.name.replace("NAV_","")
-           
+
     t.write(f, '''
 using System;
 using System.Collections.Generic;
@@ -179,14 +167,14 @@ ${message_names_enum}
 
 
 def generate_message_enum_types(xml):
-    print("generate_message_enum_types: " + xml.filename)
+    print(f"generate_message_enum_types: {xml.filename}")
     for m in xml.message:
         for fld in m.fields:
             if fld.array_length == 0:
                 fld.type = map[fld.type]
             if fld.enum != "" and fld.array_length == 0:
                 enumtypes[fld.enum] = fld.type
-                print(fld.enum + " is type " + fld.type)
+                print(f"{fld.enum} is type {fld.type}")
 
 def cleanText(text):
     text = text.replace("\n"," ")
@@ -194,7 +182,7 @@ def cleanText(text):
     return text.replace("\"","'")
 
 def generate_message_enums(f, xml): 
-    print("generate_message_enums: " + xml.filename)
+    print(f"generate_message_enums: {xml.filename}")
     # add some extra field attributes for convenience with arrays
     for m in xml.enum:
         m.description = cleanText(m.description)
@@ -207,14 +195,14 @@ def generate_message_enums(f, xml):
                 m.entry.remove(fe)
                 continue
             fe.description = cleanText(fe.description)
-            fe.name = fe.name.replace(m.name + "_","")
+            fe.name = fe.name.replace(f"{m.name}_", "")
             firstchar = re.search('^([0-9])', fe.name )
             if firstchar != None and firstchar.group():
-                fe.name = '_%s' % fe.name
+                fe.name = f'_{fe.name}'
             if hasattr(fe, "deprecated") and fe.deprecated is True:
                 fe.name = '''[Obsolete]
         %s''' % fe.name
-            
+
     t.write(f, '''
     ${{enum:
     ///<summary> ${description} </summary>
@@ -288,15 +276,12 @@ def generate_one(fh, basename, xml):
     
     directory = os.path.join(basename, xml.basename)
 
-    print("Generating CSharp implementation for %s" % xml.basename)
+    print(f"Generating CSharp implementation for {xml.basename}")
 
     # add some extra field attributes for convenience with arrays
     for m in xml.message:
         m.msg_name = m.name
-        if xml.crc_extra:
-            m.crc_extra_arg = ", %s" % m.crc_extra
-        else:
-            m.crc_extra_arg = ""
+        m.crc_extra_arg = f", {m.crc_extra}" if xml.crc_extra else ""
         m.msg_nameid = "MAVLINK_MSG_ID_${name} = ${id}"
         m.description = cleanText(m.description)
         if m.extensions_start is None:
@@ -309,31 +294,29 @@ def generate_one(fh, basename, xml):
                 f.array_return_arg = '%u, ' % (f.array_length)
                 f.array_tag = ''
                 f.array_const = 'const '
-                f.decode_left = "%s.%s = " % (m.name_lower, f.name)
-                f.decode_right = ''
                 f.return_type = 'void'
                 f.return_value = 'void'
-                f.type = "%s%s" % (map[f.type], '[]')
+                f.type = f"{map[f.type]}[]"
             else:
                 if f.enum != "":
-                    f.type = "/*" +f.enum + "*/" + f.type;
-                    #f.type = "/*" +f.type + "*/" + f.enum;
+                    f.type = f"/*{f.enum}*/{f.type}";
+                                    #f.type = "/*" +f.type + "*/" + f.enum;
                 f.array_suffix = ''
                 f.array_prefix = 'public '
-                f.array_tag = 'BitConverter.To%s' % f.type
+                f.array_tag = f'BitConverter.To{f.type}'
                 if f.type == 'byte':
                     f.array_tag = 'getByte'
                 if f.name == 'fixed':   # this is a keyword
-                    f.name = '@fixed' 
+                    f.name = '@fixed'
                 f.array_arg = ''
                 f.array_return_arg = ''
                 f.array_const = ''
-                f.decode_left = "%s.%s = " % (m.name_lower, f.name)
-                f.decode_right = ''
                 f.get_arg = ''
                 f.c_test_value = f.test_value
                 f.return_type = f.type
 
+            f.decode_right = ''
+            f.decode_left = f"{m.name_lower}.{f.name} = "
     # cope with uint8_t_mavlink_version
     for m in xml.message:
         m.arg_fields = []
@@ -350,7 +333,7 @@ def generate_one(fh, basename, xml):
                 f.putname = f.name
             else:
                 f.putname = f.const_value
-    
+
     for m in xml.message:
         generate_message_h(fh, directory, m)
 
@@ -363,7 +346,9 @@ def copy_fixed_headers(directory, xml):
         }
     basepath = os.path.dirname(os.path.realpath(__file__))
     srcpath = os.path.join(basepath, 'CS')
-    print("Copying fixed headers for protocol %s to %s" % (xml.wire_protocol_version, directory))
+    print(
+        f"Copying fixed headers for protocol {xml.wire_protocol_version} to {directory}"
+    )
     for h in hlist[xml.wire_protocol_version]:
         src = os.path.realpath(os.path.join(srcpath, h))
         dest = os.path.realpath(os.path.join(directory, h))
@@ -374,8 +359,10 @@ def copy_fixed_headers(directory, xml):
 
 def generate(basename, xml_list):
     '''generate complete MAVLink CSharp implemenation'''
-    print("generate for protocol %s to %s" % (xml_list[0].wire_protocol_version, basename))
-    
+    print(
+        f"generate for protocol {xml_list[0].wire_protocol_version} to {basename}"
+    )
+
     directory = basename
 
     if not os.path.exists(directory): 
@@ -390,10 +377,10 @@ def generate(basename, xml_list):
 
     for xml2 in xml_list:
         generate_message_enums(f, xml2)
-        
+
     for xml3 in xml_list:
         generate_one(f, basename, xml3)
-    
+
     generate_message_footer(f,xml_list[0])
 
     copy_fixed_headers(basename, xml_list[0])

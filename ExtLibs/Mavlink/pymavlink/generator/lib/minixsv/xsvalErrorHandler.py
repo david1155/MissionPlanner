@@ -71,16 +71,13 @@ class ErrorHandler:
     ########################################
     # add error to errorList (raise exception only if error limit is reached)
 
-    def addError (self, errstr, element=None, endTag=0):
+    def addError(self, errstr, element=None, endTag=0):
         filePath = ""
         lineNo = 0
         if element:
             filePath = element.getFilePath()
-            if endTag:
-                lineNo = element.getEndLineNumber()
-            else:
-                lineNo = element.getStartLineNumber()
-        self.errorList.append ((filePath, lineNo, "ERROR", "%s" %errstr))
+            lineNo = element.getEndLineNumber() if endTag else element.getStartLineNumber()
+        self.errorList.append((filePath, lineNo, "ERROR", f"{errstr}"))
         self.noOfErrors += 1
         if self.noOfErrors == self.errorLimit:
             self._raiseXsvalException ("\nError Limit reached!!")
@@ -101,8 +98,8 @@ class ErrorHandler:
     ########################################
     # add info string to errorList
 
-    def addInfo (self, infostr, element=None):
-        self.infoDict.setdefault("INFO: %s" %infostr, 1)
+    def addInfo(self, infostr, element=None):
+        self.infoDict.setdefault(f"INFO: {infostr}", 1)
 
 
     ########################################
@@ -141,26 +138,24 @@ class ErrorHandler:
         raise XsvalError (output)
 
 
-    def _assembleOutputList (self, outputList, sorted=0):
+    def _assembleOutputList(self, outputList, sorted=0):
         if sorted:
             outputList.sort()
-        outputStrList = []
-        for outElement in outputList:
-            outputStrList.append (self._assembleOutString(outElement))
+        outputStrList = [
+            self._assembleOutString(outElement) for outElement in outputList
+        ]
         return string.join (outputStrList, "\n")
         
         
-    def _assembleOutString (self, listElement):
+    def _assembleOutString(self, listElement):
         fileStr = ""
-        lineStr = ""
         if listElement[0] != "":
             if self.verbose:
-                fileStr = "%s: " %(listElement[0])
+                fileStr = f"{listElement[0]}: "
             else:
-                fileStr = "%s: " %(os.path.basename(listElement[0]))
-        if listElement[1] != 0:
-            lineStr = "line %d: " %(listElement[1])
-        return "%s: %s%s%s" %(listElement[2], fileStr, lineStr, listElement[3])
+                fileStr = f"{os.path.basename(listElement[0])}: "
+        lineStr = "line %d: " %(listElement[1]) if listElement[1] != 0 else ""
+        return f"{listElement[2]}: {fileStr}{lineStr}{listElement[3]}"
     
 
 class XsvalError (StandardError):

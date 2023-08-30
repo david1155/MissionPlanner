@@ -185,12 +185,16 @@ class InternalDomElementWrapper:
         pass # nothing to do since parent is provided by DOM interface
     
 
-    def xmlIfExtGetChildren (self, tagFilter=None):
+    def xmlIfExtGetChildren(self, tagFilter=None):
         # TODO: Handle also wildcard tagFilter = (namespace, None)
-        children = filter (lambda e: (e.nodeType == Node.ELEMENT_NODE) and          # - only ELEMENTs
-                                      (tagFilter == None or 
-                                       (e.namespaceURI == tagFilter[0] and e.localName == tagFilter[1])), # - if tagFilter given --> check
-                           self.element.childNodes )                                 # from element's nodes
+        children = filter(
+            lambda e: e.nodeType == Node.ELEMENT_NODE
+            and (
+                tagFilter is None
+                or (e.namespaceURI == tagFilter[0] and e.localName == tagFilter[1])
+            ),
+            self.element.childNodes,
+        )
 
         return map(lambda element: element.xmlIfExtInternalWrapper, children)
 
@@ -241,11 +245,11 @@ class InternalDomElementWrapper:
                 self.element.appendChild(childElement.element)
 
 
-    def xmlIfExtGetAttributeDict (self):
-        attribDict = {}
-        for nsAttrName, attrNodeOrValue in self.element.attributes.items():
-            attribDict[NsNameTupleFactory(nsAttrName)] = attrNodeOrValue.nodeValue
-        return attribDict
+    def xmlIfExtGetAttributeDict(self):
+        return {
+            NsNameTupleFactory(nsAttrName): attrNodeOrValue.nodeValue
+            for nsAttrName, attrNodeOrValue in self.element.attributes.items()
+        }
 
 
     def xmlIfExtGetAttribute (self, nsAttrName):
@@ -271,10 +275,11 @@ class InternalDomElementWrapper:
         self.element.removeAttributeNS (nsAttrName[0], nsAttrName[1])
 
 
-    def xmlIfExtGetElementValueFragments (self, ignoreEmtpyStringFragments):
-        elementValueList = []
-        for childTextNode in self.__xmlIfExtGetChildTextNodes():
-            elementValueList.append(childTextNode.data)
+    def xmlIfExtGetElementValueFragments(self, ignoreEmtpyStringFragments):
+        elementValueList = [
+            childTextNode.data
+            for childTextNode in self.__xmlIfExtGetChildTextNodes()
+        ]
         if ignoreEmtpyStringFragments:
             elementValueList = filter (lambda s: collapseString(s) != "", elementValueList)
         if elementValueList == []:
@@ -293,15 +298,14 @@ class InternalDomElementWrapper:
         return "".join(elementTextList)
 
     
-    def xmlIfExtGetElementTailText (self):
+    def xmlIfExtGetElementTailText(self):
         tailTextList = ["",]
         nextSib = self.element.nextSibling
         while nextSib:
-            if nextSib.nodeType in (Node.TEXT_NODE, Node.CDATA_SECTION_NODE):
-                tailTextList.append (nextSib.data)
-                nextSib = nextSib.nextSibling
-            else:
+            if nextSib.nodeType not in (Node.TEXT_NODE, Node.CDATA_SECTION_NODE):
                 break
+            tailTextList.append (nextSib.data)
+            nextSib = nextSib.nextSibling
         return "".join(tailTextList)
         
 
@@ -316,7 +320,7 @@ class InternalDomElementWrapper:
                     textNode.data = ""
             
 
-    def xmlIfExtProcessWsElementValue (self, wsAction):
+    def xmlIfExtProcessWsElementValue(self, wsAction):
         textNodes = self.__xmlIfExtGetChildTextNodes()
 
         if len(textNodes) == 1:
@@ -328,10 +332,7 @@ class InternalDomElementWrapper:
                 lstrip = 1
             for textNode in textNodes[1:-1]:
                 textNode.data = processWhitespaceAction (textNode.data, wsAction, lstrip, rstrip=0)
-                if len(textNode.data) > 0 and textNode.data[-1] == " ":
-                    lstrip = 1
-                else:
-                    lstrip = 0
+                lstrip = 1 if len(textNode.data) > 0 and textNode.data[-1] == " " else 0
             textNodes[-1].data = processWhitespaceAction (textNodes[-1].data, wsAction, lstrip)
 
 

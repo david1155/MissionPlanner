@@ -68,17 +68,17 @@ class MAVField(object):
         if aidx != -1:
             assert type[-1:] == ']'
             self.array_length = int(type[aidx+1:-1])
-            type = type[0:aidx]
+            type = type[:aidx]
             if type == 'array':
                 type = 'int8_t'
         if type in lengths:
             self.type_length = lengths[type]
             self.type = type
-        elif (type+"_t") in lengths:
-            self.type_length = lengths[type+"_t"]
-            self.type = type+'_t'
+        elif f"{type}_t" in lengths:
+            self.type_length = lengths[f"{type}_t"]
+            self.type = f'{type}_t'
         else:
-            raise MAVParseError("unknown type '%s'" % type)
+            raise MAVParseError(f"unknown type '{type}'")
         if self.array_length != 0:
             self.wire_length = self.array_length * self.type_length
         else:
@@ -104,20 +104,19 @@ class MAVField(object):
         elif self.type in ['int64_t', 'uint64_t']:
             return 93372036854775807 + self.wire_offset*63 + i
         else:
-            raise MAVParseError('unknown type %s' % self.type)
+            raise MAVParseError(f'unknown type {self.type}')
 
     def set_test_value(self):
         '''set a testsuite value for a MAVField'''
         if self.array_length:
             self.test_value = []
-            for i in range(self.array_length):
-                self.test_value.append(self.gen_test_value(i))
+            self.test_value.extend(
+                self.gen_test_value(i) for i in range(self.array_length)
+            )
         else:
-                self.test_value = self.gen_test_value(0)
+            self.test_value = self.gen_test_value(0)
         if self.type == 'char' and self.array_length:
-            v = ""
-            for c in self.test_value:
-                v += c
+            v = "".join(self.test_value)
             self.test_value = v[:-1]
 
 
@@ -156,7 +155,7 @@ class MAVEnumParam(object):
 
     def set_description(self, description):
         if not description.strip() and self.reserved:
-            self.description = 'Reserved (default:%s)' % self.default
+            self.description = f'Reserved (default:{self.default})'
         else:
             self.description = description
 
@@ -225,7 +224,9 @@ class MAVXML(object):
         else:
             print("Unknown wire protocol version")
             print("Available versions are: %s %s" % (PROTOCOL_0_9, PROTOCOL_1_0, PROTOCOL_2_0))
-            raise MAVParseError('Unknown MAVLink wire protocol version %s' % wire_protocol_version)
+            raise MAVParseError(
+                f'Unknown MAVLink wire protocol version {wire_protocol_version}'
+            )
 
         in_element_list = []
 
@@ -251,7 +252,7 @@ class MAVXML(object):
                 display = attrs.get('display', '')
                 units = attrs.get('units', '')
                 if units:
-                    units = '[' + units + ']'
+                    units = f'[{units}]'
                 new_field = MAVField(attrs['name'], attrs['type'], print_format, self, enum=enum, display=display, units=units)
                 if self.message[-1].extensions_start is None or self.allow_extensions:
                     self.message[-1].fields.append(new_field)
@@ -292,9 +293,7 @@ class MAVXML(object):
         def is_target_system_field(m, f):
             if f.name == 'target_system':
                 return True
-            if m.name == "MANUAL_CONTROL" and f.name == "target":
-                return True
-            return False
+            return m.name == "MANUAL_CONTROL" and f.name == "target"
 
         def end_element(name):
             in_element_list.pop()
@@ -317,25 +316,22 @@ class MAVXML(object):
             elif in_element == "mavlink.include":
                 self.include.append(data)
 
-        f = open(filename, mode='rb')
-        p = xml.parsers.expat.ParserCreate()
-        p.StartElementHandler = start_element
-        p.EndElementHandler = end_element
-        p.CharacterDataHandler = char_data
-        p.ParseFile(f)
-        f.close()
-   
-
+        with open(filename, mode='rb') as f:
+            p = xml.parsers.expat.ParserCreate()
+            p.StartElementHandler = start_element
+            p.EndElementHandler = end_element
+            p.CharacterDataHandler = char_data
+            p.ParseFile(f)
         #Post process to add reserved params (for docs)
         for current_enum in self.enum:
-            if not 'MAV_CMD' in current_enum.name:
+            if 'MAV_CMD' not in current_enum.name:
                 continue
             print(current_enum.name)
             for enum_entry in current_enum.entry:
                 print(enum_entry.name)
                 if len(enum_entry.param) == 7:
                     continue
-                params_dict=dict()
+                params_dict = {}
                 for param_index in range (1,8):
                     params_dict[param_index] = MAVEnumParam(param_index, label='', units='', enum='', increment='', 
                                                         minValue='', maxValue='', default='0', reserved='True')
@@ -343,7 +339,7 @@ class MAVXML(object):
                 for a_param in enum_entry.param:
                     params_dict[int(a_param.index)] = a_param
                 enum_entry.param=params_dict.values()
-                
+
 
 
         self.message_lengths = {}
@@ -362,7 +358,7 @@ class MAVXML(object):
                 if m.id <= 255:
                     m2.append(m)
                 else:
-                    print("Ignoring MAVLink2 message %s" % m.name)
+                    print(f"Ignoring MAVLink2 message {m.name}")
             self.message = m2
 
         for m in self.message:
@@ -379,7 +375,7 @@ class MAVXML(object):
             m.message_flags = 0
             m.target_system_ofs = 0
             m.target_component_ofs = 0
-            
+
             if self.sort_fields:
                 # when we have extensions we only sort up to the first extended field
                 sort_end = m.base_fields()
@@ -409,7 +405,7 @@ class MAVXML(object):
                 m.ordered_fieldtypes.append(f.type)
                 f.set_test_value()
                 if f.name.find('[') != -1:
-                    raise MAVParseError("invalid field name with array descriptor %s" % f.name)
+                    raise MAVParseError(f"invalid field name with array descriptor {f.name}")
                 # having flags for target_system and target_component helps a lot for routing code
                 if is_target_system_field(m, f):
                     m.message_flags |= FLAG_HAVE_TARGET_SYSTEM
@@ -448,14 +444,14 @@ def message_checksum(msg):
        can detect incompatible XML changes'''
     from .mavcrc import x25crc
     crc = x25crc()
-    crc.accumulate_str(msg.name + ' ')
+    crc.accumulate_str(f'{msg.name} ')
     # in order to allow for extensions the crc does not include
     # any field extensions
     crc_end = msg.base_fields()
     for i in range(crc_end):
         f = msg.ordered_fields[i]
-        crc.accumulate_str(f.type + ' ')
-        crc.accumulate_str(f.name + ' ')
+        crc.accumulate_str(f'{f.type} ')
+        crc.accumulate_str(f'{f.name} ')
         if f.array_length:
             crc.accumulate([f.array_length])
     return (crc.crc&0xFF) ^ (crc.crc>>8)
@@ -479,7 +475,7 @@ def merge_enums(xml):
                 emapitem.entry.extend(enum.entry)
                 if not emapitem.description:
                     emapitem.description = enum.description
-                print("Merged enum %s" % enum.name)
+                print(f"Merged enum {enum.name}")
             else:
                 newenums.append(enum)
                 emap[enum.name] = enum
@@ -490,8 +486,13 @@ def merge_enums(xml):
                                key=operator.attrgetter('value'),
                                reverse=False)
         # add a ENUM_END
-        emap[e].entry.append(MAVEnumEntry("%s_ENUM_END" % emap[e].name,
-                                            emap[e].entry[-1].value+1, end_marker=True))
+        emap[e].entry.append(
+            MAVEnumEntry(
+                f"{emap[e].name}_ENUM_END",
+                emap[e].entry[-1].value + 1,
+                end_marker=True,
+            )
+        )
 
 def check_duplicates(xml):
     '''check for duplicate message IDs'''
@@ -533,8 +534,8 @@ def check_duplicates(xml):
             for entry in enum.entry:
                 if entry.autovalue is True and "common.xml" not in entry.origin_file:
                     print("Note: An enum value was auto-generated: %s = %u" % (entry.name, entry.value))
-                s1 = "%s.%s" % (enum.name, entry.name)
-                s2 = "%s.%s" % (enum.name, entry.value)
+                s1 = f"{enum.name}.{entry.name}"
+                s2 = f"{enum.name}.{entry.value}"
                 if s1 in enummap or s2 in enummap:
                     print("ERROR: Duplicate enum %s:\n\t%s = %s @ %s:%u\n\t%s" % (
                         "names" if s1 in enummap else "values",
@@ -549,10 +550,7 @@ def check_duplicates(xml):
 
 def total_msgs(xml):
     '''count total number of msgs'''
-    count = 0
-    for x in xml:
-        count += len(x.message)
-    return count
+    return sum(len(x.message) for x in xml)
 
 def mkdir_p(dir):
     try:
